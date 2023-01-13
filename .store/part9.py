@@ -21,7 +21,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setMinimumSize(MINI_WEIGHT, HALF_HEIGHT)
         self.setMaximumSize(MOST_WEIGHT, BIGGIST_HEIGHT)
-        self.show()
+        #self.show()
         self.tab_bar.setVisible(False)
         with open('win_width.txt', 'w', encoding='utf-8') as f0:
             f0.write(str(self.width()))
