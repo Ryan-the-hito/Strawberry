@@ -1,0 +1,35 @@
+\catcode`@=11
+\def\evenhead{}
+\def\oddhead{}
+\headheight=8truemm
+
+\def\@evenhead{
+	\vbox{\hbox to\textwidth{\rlap{\rm\thepage}\hfil{\evenhead}\llap{}}
+		\protect\vspace{2truemm}\relax
+		\hrule depth0pt height0.15truemm width\textwidth
+}}
+\def\@oddhead{
+	\vbox{\hbox to\textwidth{\rlap{}{\oddhead}\hfil\llap{\rm\thepage}}
+		\protect\vspace{2truemm}\relax
+		\hrule depth0pt height0.15truemm width\textwidth
+}}
+\def\@evenfoot{}
+\def\@oddfoot{}
+\catcode`@=12
+
+\renewcommand{\baselinestretch}{1.2}
+\def\d{\displaystyle} \def\n{\noindent}
+\def\ST{\songti\rm\relax}
+\def\HT{\heiti\bf\relax}
+\def\FS{\fangsong\relax}
+\def\KS{\kaishu\relax}
+\def\sz{\small \zihao{-5}}
+\def\vs{\vspace{0.3cm}}
+\def\ay{\arraycolsep=1.5pt}
+%%题目、姓名等设置
+\def\SEC#1#2#3{\vspace*{.2in} \begin{center}
+		{\LARGE\zihao{3}\HT #1}\\[.2in]
+		\zihao{4}\fangsong#2\\[.1in]
+		\small\zihao{-5}#3 \end{center}}
+%==================================================
+\usepackage{feynmf}\setlength{\unitlength}{1mm}
