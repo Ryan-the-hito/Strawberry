@@ -39,7 +39,7 @@ BasePath = '/Applications/Strawberry.app/Contents/Resources/'
 #BasePath = ''  # test
 
 # Create the icon
-icon = QIcon("strmenu.icns")
+icon = QIcon(BasePath + "strmenu.icns")
 
 # Create the tray
 tray = QSystemTrayIcon()
@@ -2481,16 +2481,16 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 f8.write(contend_bea)
 
     def assigntoall(self):
-        cmd = """osascript -e '''on run
-	tell application "System Events" to set activeApp to "Strawberry"
-	tell application "System Events" to tell UI element activeApp of list 1 of process "Dock"
-		perform action "AXShowMenu"
-		click menu item "Options" of menu 1
-		click menu item "All Desktops" of menu 1 of menu item "Options" of menu 1
-	end tell
-end run'''"""
+        cmd = '''on run
+        	tell application "System Events" to set activeApp to "Strawberry"
+        	tell application "System Events" to tell UI element activeApp of list 1 of process "Dock"
+        		perform action "AXShowMenu"
+        		click menu item "Options" of menu 1
+        		click menu item "All Desktops" of menu 1 of menu item "Options" of menu 1
+        	end tell
+        end run'''
         try:
-            os.system(cmd)
+            subprocess.call(['osascript', '-e', cmd])
         except Exception as e:
             pass
 
