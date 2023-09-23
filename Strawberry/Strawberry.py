@@ -159,7 +159,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.0', self)
+        lbl1 = QLabel('Version 2.0.1', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -622,7 +622,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        lbl = QLabel('Current Version: 2.0.0', self)
+        lbl = QLabel('Current Version: 2.0.1', self)
         lbl.move(110, 75)
 
         lbl0 = QLabel('Check Now:', self)
@@ -633,7 +633,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
         bt1.clicked.connect(self.upd)
         bt1.move(110, 15)
 
-        bt2 = QPushButton('Baidu Net Disk', self)
+        bt2 = QPushButton('Dropbox', self)
         bt2.setFixedWidth(120)
         bt2.clicked.connect(self.upd2)
         bt2.move(110, 45)
@@ -648,7 +648,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
         webbrowser.open('https://github.com/Ryan-the-hito/Strawberry/releases')
 
     def upd2(self):
-        webbrowser.open('https://pan.baidu.com/s/1ItBXJLfCCUEyjlvSO_yH1w?pwd=dpcd')
+        webbrowser.open('https://www.dropbox.com/scl/fo/ysb0qqhuz5yr7ikaqzjzx/h?rlkey=cl6zrxjtu7qp3yt82edgbd5fg&dl=0')
 
     def center(self):  # 设置窗口居中
         qr = self.frameGeometry()
@@ -1484,7 +1484,14 @@ class CustomDialog_list_archive(QDialog):  # archive
             os.makedirs(fulldir2)
 
         archiveempty, ok = QFileDialog.getOpenFileName(self, "Open File", home_dir)
-        if archiveempty != '':
+        if archiveempty != '' and not w5.w3.le1.isEnabled():
+            tole1 = archiveempty.split('/')[-1]
+            patternx = re.compile(r'\.[a-zA-Z0-9]+$')
+            result_ex = patternx.findall(tole1)
+            tole2 = ''.join(result_ex)
+            archiveempty_new = archiveempty.replace(tole1, w5.w3.le1.text()) + tole2
+            os.rename(archiveempty, archiveempty_new)
+            archiveempty = archiveempty_new
             if w5.w3.le3.text() != '' and w5.w3.le4.text() != '' and w5.w3.le4_1.text() != '':
                 tarname3 = w5.w3.le3.text()
                 fulldir3 = os.path.join(fulldir2, tarname3)
@@ -5212,6 +5219,14 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
 
                 archiveempty = codecs.open(BasePath + 'newarchivepath.txt', 'r', encoding='utf-8').read()
                 if archiveempty != '':
+                    tole1 = archiveempty.split('/')[-1]
+                    patternx = re.compile(r'\.[a-zA-Z0-9]+$')
+                    result_ex = patternx.findall(tole1)
+                    tole2 = ''.join(result_ex)
+                    archiveempty_new = archiveempty.replace(tole1, self.le1.text()) + tole2
+                    os.rename(archiveempty, archiveempty_new)
+                    archiveempty = archiveempty_new
+
                     home_dir = str(Path.home())
                     archivepath_1 = "Documents"
                     fulldir1 = os.path.join(home_dir, archivepath_1)
@@ -6163,6 +6178,11 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 self.text21.setPlainText('Some directory is empty. Please go to preferences and check!')
                 # self.text21.setStyleSheet('color:red')
             else:
+                if self.widget0.currentIndex() == 1:
+                    keepsave = codecs.open(BasePath + 'path_rst.txt', 'r', encoding='utf-8').read()
+                    with open(BasePath + 'currentcursor.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(keepsave)
+
                 tarname1 = str(self.le1.text()) + ".md"
                 fulldir1 = os.path.join(path1, tarname1)
                 with open(fulldir1, 'a', encoding='utf-8') as f0:
@@ -6215,6 +6235,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 if self.le1.text() != '':
                     contend = codecs.open(fulldirend, 'r', encoding='utf-8').read()
                     self.text.setPlainText(contend)
+                    if self.widget0.currentIndex() == 1:
+                        keepsave = codecs.open(BasePath + 'currentcursor.txt', 'r', encoding='utf-8').read()
+                        with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
+                            f0.write(keepsave)
                     posnu = codecs.open(BasePath + 'path_rst.txt', 'r', encoding='utf-8').read()
                     self.text.ensureCursorVisible()  # 游标可用
                     cursor = self.text.textCursor()  # 设置游标
@@ -6256,6 +6280,11 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 self.text22.setPlainText('Some directory is empty. Please go to preferences and check!')
                 # self.text22.setStyleSheet('color:red')
             else:
+                if self.widget0.currentIndex() == 1:
+                    keepsave = codecs.open(BasePath + 'path_rst.txt', 'r', encoding='utf-8').read()
+                    with open(BasePath + 'currentcursor.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(keepsave)
+
                 tarname1 = str(self.le1.text()) + ".md"
                 fulldir1 = os.path.join(path1, tarname1)
                 with open(fulldir1, 'a', encoding='utf-8') as f0:
@@ -6291,6 +6320,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 if self.le1.text() != '':
                     contend = codecs.open(fulldirend, 'r', encoding='utf-8').read()
                     self.text.setPlainText(contend)
+                    if self.widget0.currentIndex() == 1:
+                        keepsave = codecs.open(BasePath + 'currentcursor.txt', 'r', encoding='utf-8').read()
+                        with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
+                            f0.write(keepsave)
                     posnu = codecs.open(BasePath + 'path_rst.txt', 'r', encoding='utf-8').read()
                     self.text.ensureCursorVisible()  # 游标可用
                     cursor = self.text.textCursor()  # 设置游标
