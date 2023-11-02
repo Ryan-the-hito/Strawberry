@@ -645,10 +645,10 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
 
     def upd(self):
-        webbrowser.open('https://github.com/Ryan-the-hito/Strawberry/releases')
+        pass
 
     def upd2(self):
-        webbrowser.open('https://www.dropbox.com/scl/fo/ysb0qqhuz5yr7ikaqzjzx/h?rlkey=cl6zrxjtu7qp3yt82edgbd5fg&dl=0')
+        pass
 
     def center(self):  # 设置窗口居中
         qr = self.frameGeometry()
