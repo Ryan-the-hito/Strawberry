@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (QWidget, QPushButton, QApplication,
                              QMenuBar, QFrame, QFileDialog,
                              QPlainTextEdit, QTabWidget, QTextEdit,
                              QGraphicsOpacityEffect, QCheckBox, QListView)
-from PyQt6.QtCore import Qt, QRect, QPropertyAnimation, QObjectCleanupHandler, QStringListModel
+from PyQt6.QtCore import Qt, QRect, QPropertyAnimation, QObjectCleanupHandler, QStringListModel, QTimer
 from PyQt6.QtGui import QAction, QIcon, QColor
 import PyQt6.QtGui
 import sys
@@ -31,6 +31,7 @@ from transformers import GPT2Tokenizer
 import httpx
 import asyncio
 import json
+import mistune
 
 app = QApplication(sys.argv)
 app.setQuitOnLastWindowClosed(False)
@@ -72,9 +73,6 @@ action7.setCheckable(True)
 action10 = QAction("📚 Compact mode!")
 menu.addAction(action10)
 action10.setCheckable(True)
-
-action8 = QAction("📐 Restore size!")
-menu.addAction(action8)
 
 menu.addSeparator()
 
@@ -159,7 +157,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.1', self)
+        lbl1 = QLabel('Version 2.0.2', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -265,7 +263,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg9.setLayout(blay9)
 
         widg10 = QWidget()
-        lbl6 = QLabel('© 2022-2023 Ryan-the-hito. All rights reserved.', self)
+        lbl6 = QLabel('© 2022-2024 Ryan-the-hito. All rights reserved.', self)
         blay10 = QHBoxLayout()
         blay10.setContentsMargins(0, 0, 0, 0)
         blay10.addStretch()
@@ -622,7 +620,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        lbl = QLabel('Current Version: 2.0.1', self)
+        lbl = QLabel('Current Version: 2.0.2', self)
         lbl.move(110, 75)
 
         lbl0 = QLabel('Check Now:', self)
@@ -833,7 +831,7 @@ class CustomDialog_list_pro(QDialog):  # problem
         self.setGeometry(QRect(x_center, y_center, self.width(), self.height()))
 
     def list_pro(self):
-        if self.list_dir != []:
+        if self.list_dir != [] and self.listview.currentIndex().isValid():
             w5.w3.text11.setPlainText(self.listModel.itemData(self.listview.currentIndex())[0])
             self.close()
 
@@ -912,7 +910,7 @@ class CustomDialog_list_excerpt(QDialog):  # excerpt
         self.setGeometry(QRect(x_center, y_center, self.width(), self.height()))
 
     def list_pro(self):
-        if self.list_dir != []:
+        if self.list_dir != [] and self.listview.currentIndex().isValid():
             select_text = self.listModel.itemData(self.listview.currentIndex())[0]
             pattern2 = re.compile(r'「(.*?)」')
             result = ''.join(pattern2.findall(select_text))
@@ -996,7 +994,7 @@ class CustomDialog_list_con(QDialog):  # concept
         self.setGeometry(QRect(x_center, y_center, self.width(), self.height()))
 
     def list_pro(self):
-        if self.list_dir != []:
+        if self.list_dir != [] and self.listview.currentIndex().isValid():
             w5.w3.lec1.setText(self.listModel.itemData(self.listview.currentIndex())[0])
             self.close()
 
@@ -1077,7 +1075,7 @@ class CustomDialog_list_the(QDialog):  # theory
         self.setGeometry(QRect(x_center, y_center, self.width(), self.height()))
 
     def list_pro(self):
-        if self.list_dir != []:
+        if self.list_dir != [] and self.listview.currentIndex().isValid():
             w5.w3.lec0.setText(self.listModel.itemData(self.listview.currentIndex())[0])
             self.close()
 
@@ -1158,7 +1156,7 @@ class CustomDialog_list_met(QDialog):  # method
         self.setGeometry(QRect(x_center, y_center, self.width(), self.height()))
 
     def list_pro(self):
-        if self.list_dir != []:
+        if self.list_dir != [] and self.listview.currentIndex().isValid():
             w5.w3.lem1.setText(self.listModel.itemData(self.listview.currentIndex())[0])
             self.close()
 
@@ -2339,6 +2337,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.setMaximumSize(MOST_WEIGHT, BIGGIST_HEIGHT)
         #self.show()
         self.tab_bar.setVisible(False)
+        self.cleanup_handler = QObjectCleanupHandler()
         with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
             f0.write(str(self.width()))
         self.new_width = 10
@@ -2397,14 +2396,6 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         new_pos = QRect(width, height, self.width(), self.height())
         animation.setEndValue(new_pos)
         animation.start()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.dragPosition = event.globalPosition().toPoint() - self.pos()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton:
-            self.move(event.globalPosition().toPoint() - self.dragPosition)
 
     def pathcheck(self):
         home_dir = str(Path.home())
@@ -2528,6 +2519,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             '''font: 30pt;'''
         )
         btn_wa = QPushButton('Add to waiting list!', self)
+        btn_wa.setShortcut('Ctrl+Return')
         btn_wa.clicked.connect(self.add_to_wait)
         btn_wa.setMaximumHeight(20)
         btn_wa.setMinimumWidth(150)
@@ -2607,7 +2599,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         contend = codecs.open(fulldir2, 'r', encoding='utf-8').read()
         alllist = contend.split('\n')
         alllist.sort()
-        if '' in alllist:
+        while '' in alllist:
             alllist.remove('')
         if alllist == ['']:
             self.wid_word.addItems(['No expression on list'])
@@ -2622,9 +2614,13 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         b6.addWidget(self.wid_word)
         t6.setLayout(b6)
 
-        btn_sow = QPushButton('Search the expression on Collins Dictionary!', self)
+        btn_sow = QPushButton('Search on Web!', self)
         btn_sow.clicked.connect(self.search_on_web)
-        btn_sow.setMaximumHeight(20)
+        btn_sow.setFixedHeight(20)
+
+        self.btn_aiow = QPushButton('Search with AI!', self)
+        self.btn_aiow.clicked.connect(self.search_with_ai)
+        self.btn_aiow.setFixedHeight(20)
 
         self.textw1 = QPlainTextEdit(self)
         self.textw1.setReadOnly(False)
@@ -2672,6 +2668,13 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         b8.addWidget(btn_wsearch)
         t8.setLayout(b8)
 
+        t9 = QWidget()
+        vboxa = QHBoxLayout()
+        vboxa.setContentsMargins(0, 0, 0, 0)
+        vboxa.addWidget(btn_sow)
+        vboxa.addWidget(self.btn_aiow)
+        t9.setLayout(vboxa)
+
         self.text_res = QPlainTextEdit(self)
         self.text_res.setReadOnly(True)
         self.text_res.setObjectName("edit")
@@ -2690,7 +2693,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         lay1.addWidget(t4)
         lay1.addWidget(t5)
         lay1.addWidget(t6)
-        lay1.addWidget(btn_sow)
+        lay1.addWidget(t9)
         lay1.addWidget(self.textw1)
         lay1.addWidget(self.lew3)
         lay1.addWidget(t6_5)
@@ -3243,10 +3246,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             tarname1 = str(self.le1.text()) + ".md"
             fulldir1 = os.path.join(path1, tarname1)
             maintxt = codecs.open(fulldir1, 'r', encoding='utf-8').read()
-            if i <= self.widget0.count() - 1:
+            if i < self.widget0.count() - 1:
                 tarnum = int(self.widget0.currentIndex() + 1)
                 searcde = str(self.widget0.itemText(tarnum))
-                searcde = searcde.replace('After ', '').replace('[', '\[').replace(']', '\]')
+                searcde = searcde.replace('After ', '').replace('[', '\[').replace(']', '\]').replace('.', '\.').replace('*', '\*').replace('+', '\+').replace('?', '\?').replace('|', '\|').replace('(', '\(').replace(')', '\)').replace('{', '\{').replace('}', '\}').replace('^', '\^').replace('$', '\$')
                 sst = re.search(r'#(.*?)' + searcde + '[\s\S]*', maintxt)
                 if sst != None:
                     with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
@@ -3256,19 +3259,42 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     f0.write('')
 
     def cursorchanged(self):
-        if self.text.toPlainText() != '' and self.widget0.currentIndex() == 1 and self.le1.text() != '':
-            self.text.ensureCursorVisible()  # 游标可用
-            cursor = self.text.textCursor()  # 设置游标
-            position = cursor.position()
-            path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
-            tarname1 = str(self.le1.text()) + ".md"
-            fulldir1 = os.path.join(path1, tarname1)
-            fullcontent = codecs.open(fulldir1, 'r', encoding='utf-8').read()
-            list_fullcontent = list(fullcontent)
-            remove_list = list_fullcontent[position:]
-            remove_str = ''.join(remove_list)
-            with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
-                f0.write(remove_str)
+        if self.text.toPlainText() != '' and self.le1.text() != '':
+            if self.widget0.currentIndex() == 0:
+                with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
+                    f0.write('')
+            if self.widget0.currentIndex() == 1:
+                self.text.ensureCursorVisible()  # 游标可用
+                cursor = self.text.textCursor()  # 设置游标
+                position = cursor.position()
+                path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
+                tarname1 = str(self.le1.text()) + ".md"
+                fulldir1 = os.path.join(path1, tarname1)
+                fullcontent = codecs.open(fulldir1, 'r', encoding='utf-8').read()
+                list_fullcontent = list(fullcontent)
+                remove_list = list_fullcontent[position:]
+                remove_str = ''.join(remove_list)
+                with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
+                    f0.write(remove_str)
+            if self.widget0.currentIndex() != 0 and self.widget0.currentIndex() != 1:
+                path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
+                tarname1 = str(self.le1.text()) + ".md"
+                fulldir1 = os.path.join(path1, tarname1)
+                maintxt = codecs.open(fulldir1, 'r', encoding='utf-8').read()
+                if self.widget0.currentIndex() < self.widget0.count() - 1:
+                    tarnum = int(self.widget0.currentIndex() + 1)
+                    searcde = str(self.widget0.itemText(tarnum))
+                    searcde = searcde.replace('After ', '').replace('[', '\[').replace(']', '\]').replace('.',
+                                                                                                          '\.').replace(
+                        '*', '\*').replace('+', '\+').replace('?', '\?').replace('|', '\|').replace('(', '\(').replace(
+                        ')', '\)').replace('{', '\{').replace('}', '\}').replace('^', '\^').replace('$', '\$')
+                    sst = re.search(r'#(.*?)' + searcde + '[\s\S]*', maintxt)
+                    if sst != None:
+                        with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
+                            f0.write(sst.group())
+                if self.widget0.currentIndex() == self.widget0.count() - 1:
+                    with open(BasePath + 'path_rst.txt', 'w', encoding='utf-8') as f0:
+                        f0.write('')
 
     def inspiTab(self):
         t1 = QWidget()
@@ -3673,10 +3699,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             tarname1 = str(self.leii1.text()) + ".md"
             fulldir1 = os.path.join(path1, tarname1)
             maintxt = codecs.open(fulldir1, 'r', encoding='utf-8').read()
-            if i <= self.choosepart.count() - 1:
+            if i < self.choosepart.count() - 1:
                 tarnum = int(self.choosepart.currentIndex() + 1)
                 searcde = str(self.choosepart.itemText(tarnum))
-                searcde = searcde.replace('After ', '').replace('[', '\[').replace(']', '\]')
+                searcde = searcde.replace('After ', '').replace('[', '\[').replace(']', '\]').replace('.', '\.').replace('*', '\*').replace('+', '\+').replace('?', '\?').replace('|', '\|').replace('(', '\(').replace(')', '\)').replace('{', '\{').replace('}', '\}').replace('^', '\^').replace('$', '\$')
                 sst = re.search(r'#(.*?)' + searcde + '[\s\S]*', maintxt)
                 if sst != None:
                     with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
@@ -3790,19 +3816,42 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.ii2_tab.setLayout(page3_box_h)
 
     def cursortemp(self):
-        if self.textii2.toPlainText() != '' and self.choosepart.currentIndex() == 1 and self.leii1.text() != '':
-            self.textii2.ensureCursorVisible()  # 游标可用
-            cursor = self.textii2.textCursor()  # 设置游标
-            position = cursor.position()
-            path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
-            tarname1 = str(self.leii1.text()) + ".md"
-            fulldir1 = os.path.join(path1, tarname1)
-            fullcontent = codecs.open(fulldir1, 'r', encoding='utf-8').read()
-            list_fullcontent = list(fullcontent)
-            remove_list = list_fullcontent[position:]
-            remove_str = ''.join(remove_list)
-            with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
-                f0.write(remove_str)
+        if self.textii2.toPlainText() != '' and self.leii1.text() != '':
+            if self.choosepart.currentIndex() == 0:
+                with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
+                    f0.write('')
+            if self.choosepart.currentIndex() == 1:
+                self.textii2.ensureCursorVisible()  # 游标可用
+                cursor = self.textii2.textCursor()  # 设置游标
+                position = cursor.position()
+                path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+                tarname1 = str(self.leii1.text()) + ".md"
+                fulldir1 = os.path.join(path1, tarname1)
+                fullcontent = codecs.open(fulldir1, 'r', encoding='utf-8').read()
+                list_fullcontent = list(fullcontent)
+                remove_list = list_fullcontent[position:]
+                remove_str = ''.join(remove_list)
+                with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
+                    f0.write(remove_str)
+            if self.choosepart.currentIndex() != 0 and self.choosepart.currentIndex() != 1:
+                path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+                tarname1 = str(self.leii1.text()) + ".md"
+                fulldir1 = os.path.join(path1, tarname1)
+                maintxt = codecs.open(fulldir1, 'r', encoding='utf-8').read()
+                if self.choosepart.currentIndex() < self.choosepart.count() - 1:
+                    tarnum = int(self.choosepart.currentIndex() + 1)
+                    searcde = str(self.choosepart.itemText(tarnum))
+                    searcde = searcde.replace('After ', '').replace('[', '\[').replace(']', '\]').replace('.',
+                                                                                                          '\.').replace(
+                        '*', '\*').replace('+', '\+').replace('?', '\?').replace('|', '\|').replace('(', '\(').replace(
+                        ')', '\)').replace('{', '\{').replace('}', '\}').replace('^', '\^').replace('$', '\$')
+                    sst = re.search(r'#(.*?)' + searcde + '[\s\S]*', maintxt)
+                    if sst != None:
+                        with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
+                            f0.write(sst.group())
+                if self.choosepart.currentIndex() == self.choosepart.count() - 1:
+                    with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
+                        f0.write('')
 
     def sub1(self):
         self.text = QTextEdit(self)
@@ -4293,6 +4342,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         btn_33 = QPushButton('Add and clear', self)
         btn_33.clicked.connect(self.addconexp)
         btn_33.setMaximumHeight(20)
+        btn_33.setShortcut("Ctrl+Return")
         '''btn_331 = QPushButton('Clear', self)
         btn_331.clicked.connect(self.clearconex)
         btn_331.setMaximumHeight(20)'''
@@ -4626,6 +4676,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         btn_53 = QPushButton('Add and clear', self)
         btn_53.clicked.connect(self.addmetdets)
         btn_53.setMaximumHeight(20)
+        btn_53.setShortcut("Ctrl+Return")
         '''btn_531 = QPushButton('Clear', self)
         # btn_211.clicked.connect(self.clearexc)
         btn_531.setMaximumHeight(20)'''
@@ -5907,7 +5958,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         result[i] = ''.join(result[i])
                     self.widget0.addItems(result)
                     if itemold in result:
-                        itemnub = result.index(itemold) + 1
+                        itemnub = result.index(itemold) + 2
                         self.widget0.setCurrentIndex(itemnub)
                     if itemold not in result:
                         self.widget0.setCurrentIndex(0)
@@ -8431,6 +8482,25 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                                 f0.write(self.leii1.text())
                         if self.leii1.text() == '':
                             self.textii2.setPlainText('Not a standard file produced by Strawberry. \nCan not find title within.')
+
+                        oldref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
+                        pretc7 = '0'
+                        if oldref != '':
+                            pattern7 = re.compile(r'\[.\d*\]')
+                            result7 = pattern7.findall(oldref)
+                            i = 0
+                            while i >= 0 and i <= len(result7) - 1:
+                                result7[i] = result7[i].replace('[^', '')
+                                result7[i] = result7[i].replace(']', '')
+                                result7[i] = ''.join(result7[i])
+                                i = i + 1
+                                continue
+                            result7.sort(key=int, reverse=True)
+                            pretc7 = str(result7[0])
+                        if oldref == '':
+                            pretc7 = '0'
+                        promptnum = str(int(pretc7) + 1)
+                        self.leii2.setPlaceholderText(promptnum)
                     if '.tex' in file_name:
                         patterna = re.compile(r'title\{.*}')
                         resultq = patterna.findall(contend)
@@ -8643,7 +8713,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         result[i] = ''.join(result[i])
                     self.choosepart.addItems(result)
                     if itemold in result:
-                        itemnub = result.index(itemold) + 1
+                        itemnub = result.index(itemold) + 2
                         self.choosepart.setCurrentIndex(itemnub)
                     if itemold not in result and itemold != 'Append at the current cursor':
                         self.choosepart.setCurrentIndex(0)
@@ -8758,6 +8828,16 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                             with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
                                 citpat.write(partt1)
 
+                    copynum = '[^' + str(int(pretc7) + 1) + ']'
+                    promptnum = str(int(pretc7) + 2)
+                    self.leii2.setPlaceholderText(promptnum)
+                    ResultEnd = copynum.encode('utf-8').decode('utf-8', 'ignore')
+                    uid = os.getuid()
+                    env = os.environ.copy()
+                    env['__CF_USER_TEXT_ENCODING'] = f'{uid}:0x8000100:0x8000100'
+                    p = subprocess.Popen(['pbcopy', 'w'], stdin=subprocess.PIPE, env=env)
+                    p.communicate(input=ResultEnd.encode('utf-8'))
+
             path3 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
             if path3 == '':
                 self.textii2.setPlainText('Some directory is empty. Please go to preferences and check!')
@@ -8846,6 +8926,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as r1:
             r1.write('')
         self.leiinote.clear()
+        self.leii2.setPlaceholderText('Number (blank = auto mode)')
 
     def save1(self):
         oldv = self.text.verticalScrollBar().value()
@@ -8906,7 +8987,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     result[i] = ''.join(result[i])
                 self.widget0.addItems(result)
                 if itemold in result:
-                    itemnub = result.index(itemold) + 1
+                    itemnub = result.index(itemold) + 2
                     self.widget0.setCurrentIndex(itemnub)
                 if itemold not in result:
                     self.widget0.setCurrentIndex(0)
@@ -8961,6 +9042,17 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 saved = self.textii2.toPlainText()
                 with open(fulldir1, 'w', encoding='utf-8') as f1:
                     f1.write(saved)
+
+                patterna = re.compile(r'\[.*<e>\n')
+                resultp = patterna.findall(saved)
+                resultp = ''.join(resultp)
+                resultp = resultp.rstrip('\n')
+                resultp = resultp.replace('<e>', '')
+                resultp = resultp.replace('<e>\n<e>', '')
+                resultp = resultp.replace('<e><e>', '')
+                with open(BasePath + 'path_ref.txt', 'w', encoding='utf-8') as fp:
+                    fp.write(resultp)
+
                 oldtext = codecs.open(fulldir1, 'r', encoding='utf-8').read()
                 oldtext = oldtext.replace('[[', '')
                 oldtext = oldtext.replace(']]', '')
@@ -9565,17 +9657,6 @@ Keywords.
                 with open(fulldir10, 'w', encoding='utf-8') as f1:
                     f1.write(lattex)
 
-            contendc = self.textii2.toPlainText()
-            patterna = re.compile(r'\[.*<e>\n')
-            resultp = patterna.findall(contendc)
-            resultp = ''.join(resultp)
-            resultp = resultp.rstrip('\n')
-            resultp = resultp.replace('<e>', '')
-            resultp = resultp.replace('<e>\n<e>', '')
-            resultp = resultp.replace('<e><e>', '')
-            with open(BasePath + 'path_ref.txt', 'w', encoding='utf-8') as fp:
-                fp.write(resultp)
-
             itemold = self.choosepart.currentText()
             self.choosepart.clear()
             self.choosepart.addItems(['Append at the end (default)', 'Append at the current cursor'])
@@ -9598,7 +9679,7 @@ Keywords.
                     result[i] = ''.join(result[i])
                 self.choosepart.addItems(result)
                 if itemold in result:
-                    itemnub = result.index(itemold) + 1
+                    itemnub = result.index(itemold) + 2
                     self.choosepart.setCurrentIndex(itemnub)
                 if itemold not in result:
                     self.choosepart.setCurrentIndex(0)
@@ -9954,27 +10035,6 @@ Keywords.
                                             padding: 1px;
                                             color: #FFFFFF''')
 
-    def rest_siz(self):
-        HALF_WEIGHT = int(self.screen().availableGeometry().width() / 2)
-        DE_HEIGHT = int(self.screen().availableGeometry().height())
-        SCREEN_WEIGHT = int(self.screen().availableGeometry().width())
-
-        self.resize(HALF_WEIGHT, DE_HEIGHT)
-        with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
-            f0.write(str(self.width()))
-        self.tab_bar.setVisible(True)
-        if self.i % 2 == 0:
-            self.move_window(SCREEN_WEIGHT - 10, self.pos().y())
-        if self.i % 2 == 1:
-            self.move_window(SCREEN_WEIGHT - self.width() - 3, self.pos().y())
-        btna4.setChecked(True)
-        self.btn_00.setStyleSheet('''
-                                            border: 1px outset grey;
-                                            background-color: #0085FF;
-                                            border-radius: 4px;
-                                            padding: 1px;
-                                            color: #FFFFFF''')
-
     def compact_mode_on(self):
         QUARTER_WEIGHT = int(self.screen().availableGeometry().width() * 0.3)
         HALF_WEIGHT = int(self.screen().availableGeometry().width() / 2)
@@ -9998,16 +10058,19 @@ Keywords.
             self.btnbot_ins.setVisible(False)
             self.btnbot_ins2.setVisible(False)
 
+            self.cleanup_handler.add(self.page2_box_h)
+            self.cleanup_handler.add(self.wings_h_box)
+            self.cleanup_handler.add(self.page1_v_box)
+            self.cleanup_handler.add(self.page3_v_box)
+            self.cleanup_handler.clear()
+
             self.main2.addTab(self.upper1, 'Info')
-            QObjectCleanupHandler().add(self.page2_box_h)
-            QObjectCleanupHandler().add(self.wings_h_box)
             self.newbox = QVBoxLayout()
             self.newbox.addWidget(self.main2)
             self.newbox.addWidget(self.widget0)
             self.newbox.addWidget(self.tabs)
             self.art_tab.setLayout(self.newbox)
 
-            QObjectCleanupHandler().add(self.page1_v_box)
             self.lew1.setFixedHeight(20)
             self.lew1.setStyleSheet(
                 '''font: 13pt;'''
@@ -10023,7 +10086,6 @@ Keywords.
             self.page1_new.addWidget(self.bigwi1)
             self.word_tab.setLayout(self.page1_new)
 
-            QObjectCleanupHandler().add(self.page3_v_box)
             self.page3_new = QVBoxLayout()
             self.page3_new.addWidget(self.mainii2)
             self.page3_new.addWidget(self.t2)
@@ -10067,8 +10129,12 @@ Keywords.
             self.btnbot_ins.setVisible(True)
             self.btnbot_ins2.setVisible(True)
 
-            self.upper1.deleteLater()
-            QObjectCleanupHandler().add(self.newbox)
+            self.cleanup_handler.add(self.newbox)
+            self.cleanup_handler.add(self.page1_new)
+            self.cleanup_handler.add(self.page3_new)
+            self.cleanup_handler.clear()
+
+            self.main2.removeTab(4)
             self.upper1 = QWidget()
             supper1 = QVBoxLayout()
             supper1.setContentsMargins(0, 10, 0, 0)
@@ -10139,7 +10205,6 @@ Keywords.
             self.page2_box_h.addWidget(self.main3, 1)
             self.art_tab.setLayout(self.page2_box_h)
 
-            QObjectCleanupHandler().add(self.page1_new)
             self.lew1.setFixedHeight(60)
             self.lew1.setStyleSheet(
                 '''font: 30pt;'''
@@ -10155,8 +10220,6 @@ Keywords.
             self.page1_v_box.addWidget(self.bigwi2, 1)
             self.page1_v_box.addWidget(self.bigwi3, 1)
             self.word_tab.setLayout(self.page1_v_box)
-
-            QObjectCleanupHandler().add(self.page3_new)
 
             qa1 = QWidget()
             vbox1 = QVBoxLayout()
@@ -10241,11 +10304,11 @@ Keywords.
                 }
                 ''')
             self.btn_00.setStyleSheet('''
-                                                        border: 1px outset grey;
-                                                        background-color: #0085FF;
-                                                        border-radius: 4px;
-                                                        padding: 1px;
-                                                        color: #FFFFFF''')
+                border: 1px outset grey;
+                background-color: #0085FF;
+                border-radius: 4px;
+                padding: 1px;
+                color: #FFFFFF''')
 
     def addtable(self):
         poslast = 0
@@ -10589,10 +10652,8 @@ Keywords.
             md = self.text.toPlainText()
             newhtml = self.md2html(md)
             self.real1.setHtml(newhtml)
-            if self.text.verticalScrollBar().maximum() != 0:
-                proportion = self.text.verticalScrollBar().value() / self.text.verticalScrollBar().maximum()
-                tar_pro = int(self.real1.verticalScrollBar().maximum() * proportion)
-                self.real1.verticalScrollBar().setValue(tar_pro)
+            # set position
+            QTimer.singleShot(100, self.scr_cha)
 
     def scr_cha(self):
         if self.text.verticalScrollBar().maximum() != 0 and action7.isChecked():
@@ -10612,10 +10673,8 @@ Keywords.
             md = self.textii2.toPlainText()
             newhtml = self.md2html(md)
             self.real2.setHtml(newhtml)
-            if self.textii2.verticalScrollBar().maximum() != 0:
-                proportion = self.textii2.verticalScrollBar().value() / self.textii2.verticalScrollBar().maximum()
-                tar_pro = int(self.real2.verticalScrollBar().maximum() * proportion)
-                self.real2.verticalScrollBar().setValue(tar_pro)
+            # set position
+            QTimer.singleShot(100, self.scr_cha2)
 
     def scr_cha2(self):
         if self.textii2.verticalScrollBar().maximum() != 0 and action7.isChecked():
@@ -10636,10 +10695,14 @@ Keywords.
             md = self.text_s2.toPlainText()
             newhtml = self.md2html(md)
             self.real1.setHtml(newhtml)
-            if self.text_s2.verticalScrollBar().maximum() != 0:
-                proportion = self.text_s2.verticalScrollBar().value() / self.text_s2.verticalScrollBar().maximum()
-                tar_pro = int(self.real1.verticalScrollBar().maximum() * proportion)
-                self.real1.verticalScrollBar().setValue(tar_pro)
+            # set position
+            QTimer.singleShot(100, self.scr_cha_concept)
+
+    def scr_cha_concept(self):
+        if self.text_s2.verticalScrollBar().maximum() != 0:
+            proportion = self.text_s2.verticalScrollBar().value() / self.text_s2.verticalScrollBar().maximum()
+            tar_pro = int(self.real1.verticalScrollBar().maximum() * proportion)
+            self.real1.verticalScrollBar().setValue(tar_pro)
 
     def on_text_textChanged_theory(self):
         if self.text_s3.toPlainText() != '' and self.lec0.text() != '':
@@ -10654,10 +10717,14 @@ Keywords.
             md = self.text_s3.toPlainText()
             newhtml = self.md2html(md)
             self.real1.setHtml(newhtml)
-            if self.text_s3.verticalScrollBar().maximum() != 0:
-                proportion = self.text_s3.verticalScrollBar().value() / self.text_s3.verticalScrollBar().maximum()
-                tar_pro = int(self.real1.verticalScrollBar().maximum() * proportion)
-                self.real1.verticalScrollBar().setValue(tar_pro)
+            # set position
+            QTimer.singleShot(100, self.scr_cha_theory)
+
+    def scr_cha_theory(self):
+        if self.text_s3.verticalScrollBar().maximum() != 0:
+            proportion = self.text_s3.verticalScrollBar().value() / self.text_s3.verticalScrollBar().maximum()
+            tar_pro = int(self.real1.verticalScrollBar().maximum() * proportion)
+            self.real1.verticalScrollBar().setValue(tar_pro)
 
     def on_text_textChanged_method(self):
         if self.text_s4.toPlainText() != '' and self.lem1.text() != '':
@@ -10672,10 +10739,14 @@ Keywords.
             md = self.text_s4.toPlainText()
             newhtml = self.md2html(md)
             self.real1.setHtml(newhtml)
-            if self.text_s4.verticalScrollBar().maximum() != 0:
-                proportion = self.text_s4.verticalScrollBar().value() / self.text_s4.verticalScrollBar().maximum()
-                tar_pro = int(self.real1.verticalScrollBar().maximum() * proportion)
-                self.real1.verticalScrollBar().setValue(tar_pro)
+            # set position
+            QTimer.singleShot(100, self.scr_cha_method)
+
+    def scr_cha_method(self):
+        if self.text_s4.verticalScrollBar().maximum() != 0:
+            proportion = self.text_s4.verticalScrollBar().value() / self.text_s4.verticalScrollBar().maximum()
+            tar_pro = int(self.real1.verticalScrollBar().maximum() * proportion)
+            self.real1.verticalScrollBar().setValue(tar_pro)
 
     def on_realclick(self):
         if action7.isChecked() and self.main2.currentIndex() == 0:
@@ -10733,7 +10804,7 @@ Keywords.
             deck_path = codecs.open(BasePath + 'path_dec.txt', 'r', encoding='utf-8').read()
             ori_cont = codecs.open(deck_path, 'r', encoding='utf-8').read()
             ori_lst = ori_cont.split('\n')
-            if '' in ori_lst:
+            while '' in ori_lst:
                 ori_lst.remove('')
             ori_lst.remove(ori_lst[-1])
             new_cont = '\n'.join(ori_lst) + '\n'
@@ -10764,7 +10835,7 @@ Keywords.
             deck_path = codecs.open(BasePath + 'path_dec.txt', 'r', encoding='utf-8').read()
             ori_cont = codecs.open(deck_path, 'r', encoding='utf-8').read()
             ori_lst = ori_cont.split('\n')
-            if '' in ori_lst:
+            while '' in ori_lst:
                 ori_lst.remove('')
             ori_lst.remove(ori_lst[-1])
             new_cont = '\n'.join(ori_lst) + '\n'
@@ -10809,21 +10880,20 @@ Keywords.
                     continue
                 else:
                     continue
-            if self.lew1.text() != '':
-                corepart = self.lew1.text() + '\n'
-                with open(fulldir2, 'a', encoding='utf-8') as f0:
-                    f0.write(corepart)
-                contend2 = codecs.open(fulldir2, 'r', encoding='utf-8').read()
-                alllist2 = contend2.split('\n')
-                alllist2.sort()
-                if '' in alllist2:
-                    alllist2.remove('')
-                self.wid_word.clear()
-                self.wid_word.addItems(alllist2)
-                num = len(alllist2)
-                wri = 'There are ' + str(num) + ' expressions on your list now!'
-                self.lblexp_2.setText(wri)
-                self.lew1.clear()
+            corepart = self.lew1.text().replace('\n', '') + '\n'
+            with open(fulldir2, 'a', encoding='utf-8') as f0:
+                f0.write(corepart)
+            contend2 = codecs.open(fulldir2, 'r', encoding='utf-8').read()
+            alllist2 = contend2.split('\n')
+            alllist2.sort()
+            while '' in alllist2:
+                alllist2.remove('')
+            self.wid_word.clear()
+            self.wid_word.addItems(alllist2)
+            num = len(alllist2)
+            wri = 'There are ' + str(num) + ' expressions on your list now!'
+            self.lblexp_2.setText(wri)
+            self.lew1.clear()
 
     def importlist(self):
         home_dir = str(Path.home())
@@ -10841,7 +10911,7 @@ Keywords.
             contend2 = codecs.open(fulldir2, 'r', encoding='utf-8').read()
             alllist2 = contend2.split('\n')
             alllist2.sort()
-            if '' in alllist2:
+            while '' in alllist2:
                 alllist2.remove('')
             num = len(alllist2)
             wri = 'There are ' + str(num) + ' expressions on your list now!'
@@ -10871,7 +10941,15 @@ Keywords.
 
     def opendeck(self):
         home_dir = str(Path.home())
-        fj = QFileDialog.getOpenFileName(self, "Open File", home_dir, "Text Files (*.txt)")
+        tarname1 = "StrawberryAppPath"
+        fulldir1 = os.path.join(home_dir, tarname1)
+        if not os.path.exists(fulldir1):
+            os.mkdir(fulldir1)
+        tarname2 = 'MyDecks'
+        fulldir2 = os.path.join(fulldir1, tarname2)
+        if not os.path.exists(fulldir2):
+            os.mkdir(fulldir2)
+        fj = QFileDialog.getOpenFileName(self, "Open File", fulldir2, "Text Files (*.txt)")
         if fj != '':
             str_fj = ''.join(fj)
             str_fj = str_fj.replace('Text Files (*.txt)', '')
@@ -10892,9 +10970,247 @@ Keywords.
         self.cardb.clear()
 
     def search_on_web(self):
+        home_dir = str(Path.home())
+        tarname1 = "StrawberryAppPath"
+        fulldir1 = os.path.join(home_dir, tarname1)
+        if not os.path.exists(fulldir1):
+            os.mkdir(fulldir1)
+        tarname2 = "default_link.txt"
+        fulldir2 = os.path.join(fulldir1, tarname2)
+        if not os.path.exists(fulldir2):
+            with open(fulldir2, 'a', encoding='utf-8') as f0:
+                f0.write('https://www.collinsdictionary.com/dictionary/english/')
+
+        pre_link = ''
+        default_link = codecs.open(fulldir2, 'r', encoding='utf-8').read()
+        if default_link != '':
+            pre_link = default_link
+
         searchcon = self.wid_word.currentText()
-        fullurl = 'https://www.collinsdictionary.com/dictionary/english/' + str(searchcon.lower())
+        fullurl = pre_link + str(searchcon.lower())
         webbrowser.open(fullurl)
+
+    def search_with_ai(self):
+        self.btn_aiow.setDisabled(True)
+        modelnow = codecs.open(BasePath + 'modelnow.txt', 'r', encoding='utf-8').read()
+        Which = codecs.open(BasePath + 'which.txt', 'r', encoding='utf-8').read()
+        if Which == '0':
+            AccountGPT = codecs.open(BasePath + 'api.txt', 'r',
+                                     encoding='utf-8').read()
+            if AccountGPT != '':
+                QApplication.processEvents()
+                QApplication.restoreOverrideCursor()
+
+                timeout = 60
+                timeset = codecs.open(BasePath + 'timeout.txt', 'r',
+                                      encoding='utf-8').read()
+                if timeset != '':
+                    timeout = int(timeset)
+                signal.signal(signal.SIGALRM, self.timeout_handler)
+                signal.alarm(timeout)  # set timer to 15 seconds
+                try:
+                    openai.api_key = AccountGPT
+                    searchcon = str(self.wid_word.currentText().lower())
+                    conversation_history = """user: You are an expert in the semantic syntax, and you are teaching me expressions.
+                                            assistant: Yes, I understand. Please give me the expression."""
+                    prompt = f"""You are an expert in semantics and grammar teaching me how to learn an expression. You should do as follows: 
+                        1. Explain in {w4.other_3.text()} every meaning of {searchcon} in numeric list;
+                        2. Provide at least one example sentence after each meaning above accordingly;
+                        3. If a word is part of an idiom, explain the idiom and a few examples;
+                        4. Give the synonym, along with their differences and usage scenarios.
+                        5. The answer should follow the format below:
+                        ```
+                        - Meanings:
+                            1. <part of speech> **meaning1**e.g.: examples
+                            2. <part of speech> **meaning2**e.g.: examples
+                        - Idioms: idiom and its meaning
+                        - Synonyms: synonym and their differences
+                        ```
+                        All replies should be in Markdown format. Before it starts, must exactly write "「「start」」" and write "「「end」」" after it ends."""
+
+                    tutr = 0.5
+                    temp = codecs.open(BasePath + 'temp.txt', 'r',
+                                       encoding='utf-8').read()
+                    if temp != '':
+                        tutr = float(temp)
+
+                    maxt = 1024
+                    maxtoken = codecs.open(BasePath + 'max.txt', 'r',
+                                           encoding='utf-8').read()
+                    if maxtoken != '':
+                        maxt = int(maxtoken)
+
+                    completion = openai.ChatCompletion.create(
+                        model=modelnow,
+                        messages=[{"role": "user", "content": conversation_history + prompt}],
+                        max_tokens=maxt,
+                        n=1,
+                        stop=None,
+                        temperature=tutr,
+                    )
+                    message = completion.choices[0].message["content"].strip()
+                    QApplication.processEvents()
+                    QApplication.restoreOverrideCursor()
+                    pattern = re.compile(r'「「start」」([\s\S]*?)「「end」」')
+                    result = pattern.findall(message)
+                    ResultEnd = ''.join(result)
+                    ResultEnd = ResultEnd.encode('utf-8').decode('utf-8', 'ignore')
+                    uid = os.getuid()
+                    env = os.environ.copy()
+                    env['__CF_USER_TEXT_ENCODING'] = f'{uid}:0x8000100:0x8000100'
+                    p = subprocess.Popen(['pbcopy', 'w'], stdin=subprocess.PIPE, env=env)
+                    p.communicate(input=ResultEnd.encode('utf-8'))
+                    message = ResultEnd
+                    message = message.lstrip('\n')
+                    message = message.replace('\n', '\n\n\t')
+                    message = message.replace('\n\n\t\n\n\t', '\n\n\t')
+                    message = '\n\t' + message
+
+                    EndMess = '- AI: ' + message
+                    self.textw1.appendPlainText(EndMess)
+
+                    QApplication.processEvents()
+                    QApplication.restoreOverrideCursor()
+                except TimeoutException:
+                    self.textw1.appendPlainText('Timed out, please try again!')
+                except Exception as e:
+                    with open(BasePath + 'errorfile.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(str(e))
+                    self.textw1.appendPlainText('Error, please try again!')
+                signal.alarm(0)  # reset timer
+            if AccountGPT == '':
+                self.textw1.appendPlainText('You should set your accounts in Settings.')
+        if Which == '1':
+            AccountGPT = codecs.open(BasePath + 'api.txt', 'r',
+                                     encoding='utf-8').read()
+            if AccountGPT != '':
+                timeout = 60
+                timeset = codecs.open(BasePath + 'timeout.txt', 'r',
+                                      encoding='utf-8').read()
+                if timeset != '':
+                    timeout = int(timeset)
+                signal.signal(signal.SIGALRM, self.timeout_handler)
+                signal.alarm(timeout)  # set timer to 15 seconds
+                # Set up your API key
+                ENDPOINT = 'https://api.openai.com/v1/chat/completions'
+                api2 = codecs.open(BasePath + 'api2.txt', 'r',
+                                   encoding='utf-8').read()
+                bear = codecs.open(BasePath + 'bear.txt', 'r',
+                                   encoding='utf-8').read()
+                thirdp = codecs.open(BasePath + 'third.txt', 'r',
+                                     encoding='utf-8').read()
+                if bear != '' and api2 != '' and thirdp == '1':
+                    ENDPOINT = bear + '/v1/chat/completions'
+                    AccountGPT = api2
+                HEADERS = {"Authorization": f"Bearer {AccountGPT}"}
+                totaltoken = codecs.open(BasePath + 'total.txt', 'r',
+                                         encoding='utf-8').read()
+                maxtoken = codecs.open(BasePath + 'max.txt', 'r',
+                                       encoding='utf-8').read()
+                prompttoken = int(totaltoken) - int(maxtoken)
+                try:
+                    async def chat_gpt(message, conversation_history=None, tokens_limit=prompttoken):
+                        if conversation_history is None:
+                            conversation_history = []
+
+                        conversation_history.append({"role": "user", "content": message})
+
+                        input_text = "".join([f"{msg['role']}:{msg['content']}\n" for msg in conversation_history])
+
+                        # Truncate or shorten the input text if it exceeds the token limit
+                        encoded_input_text = input_text.encode("utf-8")
+                        while len(encoded_input_text) > tokens_limit:
+                            conversation_history.pop(0)
+                            input_text = "".join(
+                                [f"{msg['role']}:{msg['content']}\n" for msg in conversation_history])
+                            encoded_input_text = input_text.encode("utf-8")
+
+                        tutr = 0.5
+                        temp = codecs.open(BasePath + 'temp.txt', 'r',
+                                           encoding='utf-8').read()
+                        if temp != '':
+                            tutr = float(temp)
+
+                        maxt = 1024
+                        if maxtoken != '':
+                            maxt = int(maxtoken)
+
+                        # Set up the API call data
+                        data = {
+                            "model": modelnow,
+                            "messages": [{"role": "user", "content": input_text}],
+                            "max_tokens": maxt,
+                            "temperature": tutr,
+                            "n": 1,
+                            "stop": None,
+                        }
+
+                        # Make the API call asynchronously
+                        async with httpx.AsyncClient() as client:
+                            response = await client.post(ENDPOINT, json=data, headers=HEADERS, timeout=60.0)
+
+                        # Process the API response
+                        if response.status_code == 200:
+                            response_data = response.json()
+                            chat_output = response_data["choices"][0]["message"]["content"].strip()
+                            return chat_output
+                        else:
+                            raise Exception(
+                                f"API call failed with status code {response.status_code}: {response.text}")
+
+                    async def main():
+                        conversation_history = [{"role": "user", "content": "You are an expert in the semantic syntax, and you are teaching me expressions."},
+                                       {"role": "assistant", "content": "Yes, I understand. Please give me the expression."}]
+                        searchcon = str(self.wid_word.currentText().lower())
+                        prompt = f"""You are an expert in semantics and grammar teaching me how to learn an expression. You should do as follows: 
+                            1. Explain in {w4.other_3.text()} every meaning of {searchcon} in numeric list;
+                            2. Provide at least one example sentence after each meaning above accordingly;
+                            3. If a word is part of an idiom, explain the idiom and a few examples;
+                            4. Give the synonym, along with their differences and usage scenarios.
+                            5. The answer should follow the format below:
+                            ```
+                            - Meanings:
+                                1. <part of speech> **meaning1**e.g.: examples
+                                2. <part of speech> **meaning2**e.g.: examples
+                            - Idioms: idiom and its meaning
+                            - Synonyms: synonym and their differences
+                            ```
+                            All replies should be in Markdown format. Before it starts, must exactly write "「「start」」" and write "「「end」」" after it ends."""
+
+                        response = await chat_gpt(prompt, conversation_history)
+                        message = response.lstrip('assistant:').strip()
+                        pattern = re.compile(r'「「start」」([\s\S]*?)「「end」」')
+                        result = pattern.findall(message)
+                        ResultEnd = ''.join(result)
+                        ResultEnd = ResultEnd.encode('utf-8').decode('utf-8', 'ignore')
+                        uid = os.getuid()
+                        env = os.environ.copy()
+                        env['__CF_USER_TEXT_ENCODING'] = f'{uid}:0x8000100:0x8000100'
+                        p = subprocess.Popen(['pbcopy', 'w'], stdin=subprocess.PIPE, env=env)
+                        p.communicate(input=ResultEnd.encode('utf-8'))
+                        message = ResultEnd
+                        message = message.lstrip('\n')
+                        message = message.replace('\n', '\n\n\t')
+                        message = message.replace('\n\n\t\n\n\t', '\n\n\t')
+                        message = '\n\t' + message
+
+                        EndMess = '- AI: ' + message
+                        self.textw1.appendPlainText(EndMess)
+
+                        QApplication.processEvents()
+                        QApplication.restoreOverrideCursor()
+
+                    asyncio.run(main())
+                except TimeoutException:
+                    self.textw1.appendPlainText('Timed out, please try again!')
+                except Exception as e:
+                    with open(BasePath + 'errorfile.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(str(e))
+                    self.textw1.appendPlainText('Error, please try again!')
+                signal.alarm(0)  # reset timer
+            if AccountGPT == '':
+                self.textw1.appendPlainText('You should set your accounts in Settings.')
+        self.btn_aiow.setDisabled(False)
 
     def makecard(self):
         if self.textw1.toPlainText() != '' and self.lew2.text() != '' and self.wid_word.currentText() != 'None' and self.wid_word.currentText() != '':
@@ -10902,7 +11218,11 @@ Keywords.
             part1 = str(self.wid_word.currentText().lower())
             part1_5 = '\t'
             tags = str(self.lew3.text()).replace('、', ' #')
-            part2 = str(self.textw1.toPlainText().replace('\n', '<br>')) + '<br>#' + tags + '\t'
+            # 创建一个 markdown 解析器
+            markdown = mistune.create_markdown()
+            # 将 Markdown 转换为 HTML
+            main_part = markdown(self.textw1.toPlainText())
+            part2 = main_part.replace('\n', '') + '<br>#' + tags + '\t'
             with open(deck_path, 'a', encoding='utf-8') as f0:
                 f0.write(part1 + part1_5 + part2 + '\n')
             home_dir = str(Path.home())
@@ -10922,7 +11242,7 @@ Keywords.
             contend2 = codecs.open(fulldir2, 'r', encoding='utf-8').read()
             alllist2 = contend2.split('\n')
             alllist2.sort()
-            if '' in alllist2:
+            while '' in alllist2:
                 alllist2.remove('')
             num = len(alllist2)
             wri = 'There are ' + str(num) + ' words on your list now!'
@@ -10972,7 +11292,7 @@ Keywords.
             new_lst2 = []
             for i in range(len(new_lst)):
                 new_lst[i] = new_lst[i].split('\t')
-                if '' in new_lst[i]:
+                while '' in new_lst[i]:
                     new_lst[i].remove('')
                 new_lst2.append(new_lst[i])
             new_dict = dict(new_lst2)
@@ -10982,7 +11302,6 @@ Keywords.
             waittopri = waittopri.replace("'", '')
             waittopri = waittopri.replace(', ', '\n')
             self.text_res.setPlainText(waittopri)
-            #print(waittopri)
 
     def newsearch(self):
         self.lew4.clear()
@@ -10993,7 +11312,7 @@ Keywords.
             deck_path = codecs.open(BasePath + 'path_dec.txt', 'r', encoding='utf-8').read()
             ori_cont = codecs.open(deck_path, 'r', encoding='utf-8').read()
             ori_lst = ori_cont.split('\n')
-            if '' in ori_lst:
+            while '' in ori_lst:
                 ori_lst.remove('')
             ori_lst.remove(ori_lst[-1])
             new_cont = '\n'.join(ori_lst) + '\n'
@@ -11093,15 +11412,15 @@ Keywords.
                     if self.sub_widget0.currentIndex() == 0:
                         prompt = reststr
                     if self.sub_widget0.currentIndex() == 1:
-                        prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub_widget1.currentText()} to {self.sub_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                        prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub_widget1.currentText()} to {self.sub_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                     if self.sub_widget0.currentIndex() == 2:
-                        prompt = f"""Revise the text in {self.sub_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                        prompt = f"""Revise the text in {self.sub_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                     if self.sub_widget0.currentIndex() == 3:
-                        prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                        prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                     if self.sub_widget0.currentIndex() == 4:
-                        prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                        prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                     if self.sub_widget0.currentIndex() == 5:
-                        prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub_widget4.currentText()}. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Code: {str(self.sub_text1.toPlainText())}. """
+                        prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub_widget4.currentText()}. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Code: {str(self.sub_text1.toPlainText())}. """
 
                     selectedtext = ''
                     if self.main2.currentIndex() == 0:
@@ -11146,7 +11465,7 @@ Keywords.
                     if self.sub_widget0.currentIndex() == 1 or self.sub_widget0.currentIndex() == 2 or \
                             self.sub_widget0.currentIndex() == 3 or self.sub_widget0.currentIndex() == 4 or \
                             self.sub_widget0.currentIndex() == 5:
-                        pattern = re.compile(r'<|start|>([\s\S]*?)<|end|>')
+                        pattern = re.compile(r'「「start」」([\s\S]*?)「「end」」')
                         result = pattern.findall(message)
                         ResultEnd = ''.join(result)
                         ResultEnd = ResultEnd.encode('utf-8').decode('utf-8', 'ignore')
@@ -11193,6 +11512,8 @@ Keywords.
                     self.sub_real1.setTextCursor(cursor)  # 滚动到游标位置
                     self.sub_text1.setPlainText(self.sub_LastQ)
                 except Exception as e:
+                    with open(BasePath + 'errorfile.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(str(e))
                     with open(BasePath + 'output.txt', 'a',
                               encoding='utf-8') as f1:
                         f1.write('- A: Error, please try again!' + str(e) + '\n\n---\n\n')
@@ -11346,15 +11667,15 @@ Keywords.
                                 except Exception as e:
                                     pass
                         if self.sub_widget0.currentIndex() == 1:
-                            prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub_widget1.currentText()} to {self.sub_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                            prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub_widget1.currentText()} to {self.sub_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                         if self.sub_widget0.currentIndex() == 2:
-                            prompt = f"""Revise the text in {self.sub_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                            prompt = f"""Revise the text in {self.sub_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                         if self.sub_widget0.currentIndex() == 3:
-                            prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                            prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                         if self.sub_widget0.currentIndex() == 4:
-                            prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub_text1.toPlainText())}. """
+                            prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub_text1.toPlainText())}. """
                         if self.sub_widget0.currentIndex() == 5:
-                            prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub_widget4.currentText()}. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Code: {str(self.sub_text1.toPlainText())}. """
+                            prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub_widget4.currentText()}. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Code: {str(self.sub_text1.toPlainText())}. """
 
                         selectedtext = ''
                         if self.main2.currentIndex() == 0:
@@ -11380,7 +11701,7 @@ Keywords.
                         if self.sub_widget0.currentIndex() == 1 or self.sub_widget0.currentIndex() == 2 or \
                                 self.sub_widget0.currentIndex() == 3 or self.sub_widget0.currentIndex() == 4 or \
                                 self.sub_widget0.currentIndex() == 5:
-                            pattern = re.compile(r'<|start|>([\s\S]*?)<|end|>')
+                            pattern = re.compile(r'「「start」」([\s\S]*?)「「end」」')
                             result = pattern.findall(message)
                             ResultEnd = ''.join(result)
                             ResultEnd = ResultEnd.encode('utf-8').decode('utf-8', 'ignore')
@@ -11428,6 +11749,8 @@ Keywords.
                     self.sub_real1.setTextCursor(cursor)  # 滚动到游标位置
                     self.sub_text1.setPlainText(self.sub_LastQ)
                 except Exception as e:
+                    with open(BasePath + 'errorfile.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(str(e))
                     with open(BasePath + 'output.txt', 'a',
                               encoding='utf-8') as f1:
                         f1.write('- A: Error, please try again!' + str(e) + '\n\n---\n\n')
@@ -11684,15 +12007,15 @@ Keywords.
                     if self.sub2_widget0.currentIndex() == 0:
                         prompt = reststr
                     if self.sub2_widget0.currentIndex() == 1:
-                        prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub2_widget1.currentText()} to {self.sub2_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                        prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub2_widget1.currentText()} to {self.sub2_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                     if self.sub2_widget0.currentIndex() == 2:
-                        prompt = f"""Revise the text in {self.sub2_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                        prompt = f"""Revise the text in {self.sub2_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                     if self.sub2_widget0.currentIndex() == 3:
-                        prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub2_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                        prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub2_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                     if self.sub2_widget0.currentIndex() == 4:
-                        prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub2_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub2_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                        prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub2_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub2_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                     if self.sub2_widget0.currentIndex() == 5:
-                        prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub2_widget4.currentText()}. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Code: {str(self.sub2_text1.toPlainText())}. """
+                        prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub2_widget4.currentText()}. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Code: {str(self.sub2_text1.toPlainText())}. """
 
                     selectedtext = ''
                     if self.mainii2.currentIndex() == 0:
@@ -11733,7 +12056,7 @@ Keywords.
                     if self.sub2_widget0.currentIndex() == 1 or self.sub2_widget0.currentIndex() == 2 or \
                             self.sub2_widget0.currentIndex() == 3 or self.sub2_widget0.currentIndex() == 4 or \
                             self.sub2_widget0.currentIndex() == 5:
-                        pattern = re.compile(r'<|start|>([\s\S]*?)<|end|>')
+                        pattern = re.compile(r'「「start」」([\s\S]*?)「「end」」')
                         result = pattern.findall(message)
                         ResultEnd = ''.join(result)
                         ResultEnd = ResultEnd.encode('utf-8').decode('utf-8', 'ignore')
@@ -11780,6 +12103,8 @@ Keywords.
                     self.sub2_real1.setTextCursor(cursor)  # 滚动到游标位置
                     self.sub2_text1.setPlainText(self.sub2_LastQ)
                 except Exception as e:
+                    with open(BasePath + 'errorfile.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(str(e))
                     with open(BasePath + 'output2.txt', 'a',
                               encoding='utf-8') as f1:
                         f1.write('- A: Error, please try again!' + str(e) + '\n\n---\n\n')
@@ -11929,15 +12254,15 @@ Keywords.
                                 except Exception as e:
                                     pass
                         if self.sub2_widget0.currentIndex() == 1:
-                            prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub2_widget1.currentText()} to {self.sub2_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                            prompt = f"""You are a translation engine that can only translate text and cannot interpret it. Translate this text from {self.sub2_widget1.currentText()} to {self.sub2_widget2.currentText()}. Don’t reply any other explanations. Before the translated text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                         if self.sub2_widget0.currentIndex() == 2:
-                            prompt = f"""Revise the text in {self.sub2_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                            prompt = f"""Revise the text in {self.sub2_widget4.currentText()} to remove grammar mistakes and make it more clear, concise, and coherent. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                         if self.sub2_widget0.currentIndex() == 3:
-                            prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub2_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                            prompt = f"""You are a text summarizer, you can only summarize the text, don't interpret it. Summarize this text in {self.sub2_widget4.currentText()} to make it shorter, logical and clear. Don’t reply any other explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                         if self.sub2_widget0.currentIndex() == 4:
-                            prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub2_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub2_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
+                            prompt = f"""You are an expert in semantics and grammar, teaching me how to learn. Please explain in {self.sub2_widget4.currentText()} the meaning of every word in the text above and the meaning and the grammar structure of the text. If a word is part of an idiom, please explain the idiom and provide a few examples in {self.sub2_widget4.currentText()} with similar meanings, along with their explanations. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Text: {str(self.sub2_text1.toPlainText())}. """
                         if self.sub2_widget0.currentIndex() == 5:
-                            prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub2_widget4.currentText()}. Before the text starts, write "<|start|>" and write "<|end|>” after it ends. Code: {str(self.sub2_text1.toPlainText())}. """
+                            prompt = f"""You are a code explanation engine, you can only explain the code, do not interpret or translate it. Also, please report any bugs you find in the code to the author of the code. Must repeat in {self.sub2_widget4.currentText()}. Before the text starts, write "「「start」」" and write "「「end」」" after it ends. Code: {str(self.sub2_text1.toPlainText())}. """
 
                         selectedtext = ''
                         if self.mainii2.currentIndex() == 0:
@@ -11959,7 +12284,7 @@ Keywords.
                         if self.sub2_widget0.currentIndex() == 1 or self.sub2_widget0.currentIndex() == 2 or \
                                 self.sub2_widget0.currentIndex() == 3 or self.sub2_widget0.currentIndex() == 4 or \
                                 self.sub2_widget0.currentIndex() == 5:
-                            pattern = re.compile(r'<|start|>([\s\S]*?)<|end|>')
+                            pattern = re.compile(r'「「start」」([\s\S]*?)「「end」」')
                             result = pattern.findall(message)
                             ResultEnd = ''.join(result)
                             ResultEnd = ResultEnd.encode('utf-8').decode('utf-8', 'ignore')
@@ -12007,6 +12332,8 @@ Keywords.
                     self.sub2_real1.setTextCursor(cursor)  # 滚动到游标位置
                     self.sub2_text1.setPlainText(self.sub2_LastQ)
                 except Exception as e:
+                    with open(BasePath + 'errorfile.txt', 'w', encoding='utf-8') as f0:
+                        f0.write(str(e))
                     with open(BasePath + 'output2.txt', 'a',
                               encoding='utf-8') as f1:
                         f1.write('- A: Error, please try again!' + str(e) + '\n\n---\n\n')
@@ -12187,24 +12514,24 @@ Keywords.
         DE_HEIGHT = int(self.screen().availableGeometry().height())
         if self.pos().x() + WINDOW_WEIGHT + 4 < SCREEN_WEIGHT and self.pos().x() > 4:
             self.btn_00.setStyleSheet('''
-                                    border: 1px outset grey;
-                                    background-color: #FFFFFF;
-                                    border-radius: 4px;
-                                    padding: 1px;
-                                    color: #000000''')
+                                            border: 1px outset grey;
+                                            background-color: #FFFFFF;
+                                            border-radius: 4px;
+                                            padding: 1px;
+                                            color: #000000''')
         else:
             target_x = 0
             if self.i % 2 == 1:
                 win_old_width = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read()
-                if self.pos().x() + WINDOW_WEIGHT >= SCREEN_WEIGHT: # 右侧显示
+                if self.pos().x() + WINDOW_WEIGHT >= SCREEN_WEIGHT:  # 右侧显示
                     target_x = SCREEN_WEIGHT - int(win_old_width) - 3
                 btna4.setChecked(True)
                 self.btn_00.setStyleSheet('''
-                            border: 1px outset grey;
-                            background-color: #0085FF;
-                            border-radius: 4px;
-                            padding: 1px;
-                            color: #FFFFFF''')
+                                    border: 1px outset grey;
+                                    background-color: #0085FF;
+                                    border-radius: 4px;
+                                    padding: 1px;
+                                    color: #FFFFFF''')
                 self.tab_bar.setVisible(True)
                 self.resize(int(win_old_width), DE_HEIGHT)
             if self.i % 2 == 0:
@@ -12212,53 +12539,11 @@ Keywords.
                     target_x = SCREEN_WEIGHT - 10
                 btna4.setChecked(False)
                 self.btn_00.setStyleSheet('''
-                            border: 1px outset grey;
-                            background-color: #FFFFFF;
-                            border-radius: 4px;
-                            padding: 1px;
-                            color: #000000''')
-                self.tab_bar.setVisible(False)
-                with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
-                    f0.write(str(self.width()))
-                self.resize(self.new_width, DE_HEIGHT)
-            self.move_window(target_x, self.pos().y())
-
-    def pin_a_tab2(self):
-        SCREEN_WEIGHT = int(self.screen().availableGeometry().width())
-        WINDOW_WEIGHT = int(self.width())
-        DE_HEIGHT = int(self.screen().availableGeometry().height())
-        if self.pos().x() + WINDOW_WEIGHT + 4 < SCREEN_WEIGHT and self.pos().x() > 4:
-            self.btn_00.setStyleSheet('''
                                     border: 1px outset grey;
                                     background-color: #FFFFFF;
                                     border-radius: 4px;
                                     padding: 1px;
                                     color: #000000''')
-        else:
-            target_x = 0
-            if self.i % 2 == 1:
-                win_old_width = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read()
-                if self.pos().x() + WINDOW_WEIGHT >= SCREEN_WEIGHT: # 右侧显示
-                    target_x = SCREEN_WEIGHT - int(win_old_width) - 3
-                btna4.setChecked(True)
-                self.btn_00.setStyleSheet('''
-                            border: 1px outset grey;
-                            background-color: #0085FF;
-                            border-radius: 4px;
-                            padding: 1px;
-                            color: #FFFFFF''')
-                self.tab_bar.setVisible(True)
-                self.resize(int(win_old_width), DE_HEIGHT)
-            if self.i % 2 == 0:
-                if self.pos().x() + WINDOW_WEIGHT + 4 >= SCREEN_WEIGHT:  # 右侧隐藏
-                    target_x = SCREEN_WEIGHT - 10
-                btna4.setChecked(False)
-                self.btn_00.setStyleSheet('''
-                            border: 1px outset grey;
-                            background-color: #FFFFFF;
-                            border-radius: 4px;
-                            padding: 1px;
-                            color: #000000''')
                 self.tab_bar.setVisible(False)
                 with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
                     f0.write(str(self.width()))
@@ -13569,10 +13854,12 @@ class window4(QWidget):  # Customization settings
         self.pathbar = QWidget()
         self.latexbar = QWidget()
         self.aibar = QWidget()
+        self.otherbar = QWidget()
 
         self.setbar.addTab(self.pathbar, "Set Your Paths")
         self.setbar.addTab(self.latexbar, "LaTeX Templates")
         self.setbar.addTab(self.aibar, "AI settings")
+        self.setbar.addTab(self.otherbar, "Others")
         self.setbar.tabBarClicked.connect(self.barclick)
 
         main_h_box = QHBoxLayout()
@@ -13584,6 +13871,7 @@ class window4(QWidget):  # Customization settings
         self.PathBar()
         self.LatexBar()
         self.AisBar()
+        self.OtherBar()
 
     def PathBar(self):
         wid0_5 = QWidget()
@@ -14015,8 +14303,8 @@ class window4(QWidget):  # Customization settings
                 modellist.remove('')
             self.bot_widget2.addItems(modellist)
         wp = codecs.open(BasePath + 'wp.txt', 'r', encoding='utf-8').read()
-        self.bot_widget2.setCurrentIndex(int(wp))
         self.bot_widget2.currentIndexChanged.connect(self.bot_IndexChange2)
+        self.bot_widget2.setCurrentIndex(int(wp))
 
         self.bot_checkBox2 = QCheckBox('Remember chat history when asking new questions', self)
         self.bot_checkBox2.clicked.connect(self.bot_rememberhistory)
@@ -14090,6 +14378,71 @@ class window4(QWidget):  # Customization settings
         self.bot_qw6.setVisible(True)
         if self.bot_widget1.currentIndex() == 0:
             self.bot_qw6.setVisible(False)
+
+    def OtherBar(self):
+        self.other_0 = QLabel('Search link for the Expression tab:', self)
+
+        home_dir = str(Path.home())
+        tarname1 = "StrawberryAppPath"
+        fulldir1 = os.path.join(home_dir, tarname1)
+        if not os.path.exists(fulldir1):
+            os.mkdir(fulldir1)
+        tarname2 = "default_link.txt"
+        fulldir2 = os.path.join(fulldir1, tarname2)
+        if not os.path.exists(fulldir2):
+            with open(fulldir2, 'a', encoding='utf-8') as f0:
+                f0.write('https://www.collinsdictionary.com/dictionary/english/')
+
+        self.other_1 = QLineEdit(self)
+        self.other_1.setPlaceholderText('The default is Collins Dictionary')
+
+        default_link = codecs.open(fulldir2, 'r', encoding='utf-8').read()
+        if default_link != '':
+            self.other_1.setText(default_link)
+
+        btn_1 = QPushButton('Save', self)
+        btn_1.setFixedWidth(120)
+        btn_1.clicked.connect(self.savesearchlink)
+        btn_1.setMaximumHeight(20)
+
+        self.other_2 = QLabel('Target language used in explaining the expression:', self)
+
+        self.other_3 = QLineEdit(self)
+        self.other_3.setText('English')
+        self.other_3.setPlaceholderText('The default is English')
+
+        t1 = QWidget()
+        vboxa = QHBoxLayout()
+        vboxa.setContentsMargins(0, 0, 0, 0)
+        vboxa.addWidget(self.other_0)
+        vboxa.addWidget(self.other_1)
+        vboxa.addWidget(btn_1)
+        t1.setLayout(vboxa)
+
+        t2 = QWidget()
+        vboxa = QHBoxLayout()
+        vboxa.setContentsMargins(0, 0, 0, 0)
+        vboxa.addWidget(self.other_2)
+        vboxa.addWidget(self.other_3)
+        t2.setLayout(vboxa)
+
+        vbox1 = QVBoxLayout()
+        vbox1.setContentsMargins(20, 20, 20, 20)
+        vbox1.addWidget(t1)
+        vbox1.addWidget(t2)
+        self.otherbar.setLayout(vbox1)
+
+    def savesearchlink(self):
+        if self.other_1 != '':
+            home_dir = str(Path.home())
+            tarname1 = "StrawberryAppPath"
+            fulldir1 = os.path.join(home_dir, tarname1)
+            if not os.path.exists(fulldir1):
+                os.mkdir(fulldir1)
+            tarname2 = "default_link.txt"
+            fulldir2 = os.path.join(fulldir1, tarname2)
+            with open(fulldir2, 'w', encoding='utf-8') as f0:
+                f0.write(self.other_1.text().replace('\n', ''))
 
     def bot_IndexChange(self, i):
         self.bot_le1.setVisible(True)
@@ -14841,13 +15194,12 @@ action4.triggered.connect(w4.activate)
 action5.triggered.connect(w5.w3.focuson)
 action6.triggered.connect(w5.w3.editoron)
 action7.triggered.connect(w5.w3.realon)
-action8.triggered.connect(w5.w3.rest_siz)
 action10.triggered.connect(w5.w3.compact_mode_on)
 # tray.activated.connect(w3.activate)
 button_action.triggered.connect(w5.w3.activate)
 btna2.triggered.connect(w5.w3.focuson2)
 btna3.triggered.connect(w5.w3.editoron2)
-btna4.triggered.connect(w5.w3.pin_a_tab2)
+btna4.triggered.connect(w5.w3.pin_a_tab)
 btna5.triggered.connect(w5.w3.realon2)
 btna6.triggered.connect(w5.activate)
 app.setStyleSheet(style_sheet_ori)
