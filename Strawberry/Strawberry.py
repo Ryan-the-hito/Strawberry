@@ -157,7 +157,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.2', self)
+        lbl1 = QLabel('Version 2.0.3', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -620,7 +620,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        lbl = QLabel('Current Version: 2.0.2', self)
+        lbl = QLabel('Current Version: 2.0.3', self)
         lbl.move(110, 75)
 
         lbl0 = QLabel('Check Now:', self)
@@ -3817,6 +3817,19 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
 
     def cursortemp(self):
         if self.textii2.toPlainText() != '' and self.leii1.text() != '':
+            self.textii2.ensureCursorVisible()  # 游标可用
+            cursor = self.textii2.textCursor()  # 设置游标
+            position = cursor.position()
+            path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+            tarname1 = str(self.leii1.text()) + ".md"
+            fulldir1 = os.path.join(path1, tarname1)
+            fullcontent = codecs.open(fulldir1, 'r', encoding='utf-8').read()
+            list_fullcontent = list(fullcontent)
+            remove_list = list_fullcontent[position:]
+            remove_str = ''.join(remove_list)
+            with open(BasePath + 'cite_position.txt', 'w', encoding='utf-8') as f0:
+                f0.write(remove_str)
+
             if self.choosepart.currentIndex() == 0:
                 with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
                     f0.write('')
@@ -8772,6 +8785,68 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         if path1 != '' and self.leii1.text() != '':
             file_name, ok = QFileDialog.getOpenFileName(self, "Open File", path1, "Markdown Files (*.md)")
             if file_name != '' and (path1 in file_name or fulldira in file_name):
+                oldref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
+                pretc7 = '0'
+                if oldref != '':
+                    pattern7 = re.compile(r'\[.\d*\]')
+                    result7 = pattern7.findall(oldref)
+                    i = 0
+                    while i >= 0 and i <= len(result7) - 1:
+                        result7[i] = result7[i].replace('[^', '')
+                        result7[i] = result7[i].replace(']', '')
+                        result7[i] = ''.join(result7[i])
+                        i = i + 1
+                        continue
+                    result7.sort(key=int, reverse=True)
+                    pretc7 = str(result7[0])
+                if oldref == '':
+                    pretc7 = '0'
+                copynum = '[^' + str(int(pretc7) + 1) + ']'
+                promptnum = str(int(pretc7) + 2)
+                self.leii2.setPlaceholderText(promptnum)
+                ResultEnd = copynum.encode('utf-8').decode('utf-8', 'ignore')
+                uid = os.getuid()
+                env = os.environ.copy()
+                env['__CF_USER_TEXT_ENCODING'] = f'{uid}:0x8000100:0x8000100'
+                p = subprocess.Popen(['pbcopy', 'w'], stdin=subprocess.PIPE, env=env)
+                p.communicate(input=ResultEnd.encode('utf-8'))
+
+                rest_part = codecs.open(BasePath + 'cite_position.txt', 'r', encoding='utf-8').read()
+                path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+                tarname1 = str(self.leii1.text()) + ".md"
+                fulldir1 = os.path.join(path1, tarname1)
+                fullcontent = codecs.open(fulldir1, 'r', encoding='utf-8').read()
+                ue_part = fullcontent.replace(rest_part, '')
+                with open(fulldir1, 'w', encoding='utf-8') as f0:
+                    f0.write(ue_part + ResultEnd + rest_part)
+                with open(BasePath + 'filename.txt', 'w', encoding='utf-8') as f0:
+                    f0.write(file_name)
+
+            QTimer.singleShot(100, self.addcit2)
+
+    def addcit2(self):
+        path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
+        home_dir = str(Path.home())
+        tarname11 = "Documents"
+        fulldir11 = os.path.join(home_dir, tarname11)
+        if not os.path.exists(fulldir11):
+            os.makedirs(fulldir11)
+        tarname22 = 'Obsidien'
+        fulldir22 = os.path.join(fulldir11, tarname22)
+        if not os.path.exists(fulldir22):
+            os.makedirs(fulldir22)
+        tarname33 = 'Database'
+        fulldir33 = os.path.join(fulldir22, tarname33)
+        if not os.path.exists(fulldir33):
+            os.makedirs(fulldir33)
+        tarnamea = 'RIS'
+        fulldira = os.path.join(fulldir33, tarnamea)
+        if not os.path.exists(fulldira):
+            os.makedirs(fulldira)
+
+        if path1 != '' and self.leii1.text() != '':
+            file_name = codecs.open(BasePath + 'filename.txt', 'r', encoding='utf-8').read()
+            if file_name != '' and (path1 in file_name or fulldira in file_name):
                 contend = codecs.open(file_name, 'r', encoding='utf-8').read()
                 pattern6 = re.compile(r'Citation: (.*?)\n')
                 result6 = pattern6.findall(contend)
@@ -8796,6 +8871,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     pretc7 = str(result7[0])
                 if oldref == '':
                     pretc7 = '0'
+
                 if self.leii2.text() != '':
                     if pretc6 != '':
                         partt1 = '\n[^' + str(self.leii2.text()) + ']: ' + pretc6
@@ -8827,16 +8903,6 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                             partt1 = '\n[^' + str(tarnumb) + ']: ' + 'Cannot find citation for ' + file_name
                             with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
                                 citpat.write(partt1)
-
-                    copynum = '[^' + str(int(pretc7) + 1) + ']'
-                    promptnum = str(int(pretc7) + 2)
-                    self.leii2.setPlaceholderText(promptnum)
-                    ResultEnd = copynum.encode('utf-8').decode('utf-8', 'ignore')
-                    uid = os.getuid()
-                    env = os.environ.copy()
-                    env['__CF_USER_TEXT_ENCODING'] = f'{uid}:0x8000100:0x8000100'
-                    p = subprocess.Popen(['pbcopy', 'w'], stdin=subprocess.PIPE, env=env)
-                    p.communicate(input=ResultEnd.encode('utf-8'))
 
             path3 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
             if path3 == '':
@@ -9372,12 +9438,14 @@ Keywords.
                 savelatex = re.sub(r"\[.*<e>\n", '', savelatex)
                 savelatex = re.sub(r"\n\n\n\n", '', savelatex)
                 savelatex = re.sub(r"## References \n\n", '', savelatex)
+                savelatex = savelatex.replace('&', '\\&').replace('%', '\\%').replace('$', '\\$').replace('{', '\\{').replace('}', '\\}')
                 pattern2 = re.compile(r'\[.[0-9]+]')
                 result = pattern2.findall(savelatex)
                 result.sort()
                 cajref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
                 cajref = cajref.replace('[[', '')
                 cajref = cajref.replace(']]', '')
+                cajref = cajref.replace('&', '\\&').replace('%', '\\%').replace('$', '\\$').replace('{', '\\{').replace('}', '\\}')
                 cajref = cajref.split('\n')
                 i = 0
                 n = 0
@@ -9568,6 +9636,7 @@ Keywords.
                 preref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
                 preref = preref.replace('[[', '')
                 preref = preref.replace(']]', '')
+                preref = preref.replace('&', '\\&').replace('%', '\\%').replace('$', '\\$').replace('{', '\\{').replace('}', '\\}')
                 if preref != '':
                     ref2 = re.sub(r"\[.*]: ", '', preref)
                     reflist = ref2.split('\n')
@@ -14430,6 +14499,7 @@ class window4(QWidget):  # Customization settings
         vbox1.setContentsMargins(20, 20, 20, 20)
         vbox1.addWidget(t1)
         vbox1.addWidget(t2)
+        vbox1.addStretch()
         self.otherbar.setLayout(vbox1)
 
     def savesearchlink(self):
@@ -14536,6 +14606,8 @@ class window4(QWidget):  # Customization settings
             self.setFixedSize(900, 840)
         if inex == 2:
             self.setFixedSize(900, 840)
+        if inex == 3:
+            self.setFixedSize(900, 140)
 
     def saveandclear(self):
         home_dir = str(Path.home())
