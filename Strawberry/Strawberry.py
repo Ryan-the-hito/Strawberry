@@ -26,24 +26,44 @@ import markdown2
 import datetime
 import subprocess
 import shutil
-import signal
-import openai
-from transformers import GPT2Tokenizer
-import httpx
-import asyncio
-import json
 import mistune
 import urllib3
 import logging
 import requests
 import html2text
 from bs4 import BeautifulSoup
+import threading
 
 app = QApplication(sys.argv)
 app.setQuitOnLastWindowClosed(False)
 
 BasePath = '/Applications/Strawberry.app/Contents/Resources/'
 #BasePath = ''  # test
+
+INSP_BACKUP_LIMIT_FILE = os.path.join(BasePath, 'insp_backup_limit.txt')
+DEFAULT_INSP_BACKUP_LIMIT = 50
+
+def load_inspiration_backup_limit():
+    if not os.path.exists(INSP_BACKUP_LIMIT_FILE):
+        save_inspiration_backup_limit(DEFAULT_INSP_BACKUP_LIMIT)
+        return DEFAULT_INSP_BACKUP_LIMIT
+    try:
+        value = int(codecs.open(INSP_BACKUP_LIMIT_FILE, 'r', encoding='utf-8').read().strip())
+        return value if value > 0 else DEFAULT_INSP_BACKUP_LIMIT
+    except Exception:
+        return DEFAULT_INSP_BACKUP_LIMIT
+
+
+def save_inspiration_backup_limit(limit):
+    try:
+        value = int(limit)
+        if value <= 0:
+            value = DEFAULT_INSP_BACKUP_LIMIT
+    except Exception:
+        value = DEFAULT_INSP_BACKUP_LIMIT
+    with open(INSP_BACKUP_LIMIT_FILE, 'w', encoding='utf-8') as fp:
+        fp.write(str(value))
+    return value
 
 # Create the icon
 icon = QIcon(BasePath + "strmenu.icns")
@@ -163,7 +183,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.5', self)
+        lbl1 = QLabel('Version 2.0.6', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -269,7 +289,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg9.setLayout(blay9)
 
         widg10 = QWidget()
-        lbl6 = QLabel('© 2022-2024 Ryan-the-hito. All rights reserved.', self)
+        lbl6 = QLabel('© 2025 Yixiang SHEN. All rights reserved.', self)
         blay10 = QHBoxLayout()
         blay10.setContentsMargins(0, 0, 0, 0)
         blay10.addStretch()
@@ -626,7 +646,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.5', self)
+        self.lbl = QLabel('Current Version: v2.0.6', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -2378,7 +2398,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.dragPosition = self.pos()
         self.insp_show_full = False
         self.insp_updating = False
+        self._insp_backup_lock = threading.Lock()
+        self.insp_backup_timer = None
         self.initUI()
+        self._start_inspiration_autosave()
 
     def initUI(self):  # 设置窗口内布局
         self.setUpMainWindow()
@@ -2657,10 +2680,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
 
         t6 = QWidget()
         lbl4 = QLabel('Focusing on:', self)
-        lbl4.setMaximumWidth(80)
+        #lbl4.setMaximumWidth(80)
         self.wid_word = QComboBox(self)
         self.wid_word.setCurrentIndex(0)
-        self.wid_word.setMaximumWidth(275)
+        #self.wid_word.setMaximumWidth(275)
         home_dir = str(Path.home())
         tarname1 = "StrawberryAppPath"
         fulldir1 = os.path.join(home_dir, tarname1)
@@ -3266,12 +3289,12 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         # self.bot1.setFixedHeight(300)
         # self.bot1.setVisible(False)
 
-        self.qwbotbox = QWidget()
-        botbox = QVBoxLayout()
-        botbox.setContentsMargins(3, 0, 0, 0)
-        botbox.addWidget(self.main2)
-        # botbox.addWidget(self.bot1)
-        self.qwbotbox.setLayout(botbox)
+        # self.qwbotbox = QWidget()
+        # botbox = QVBoxLayout()
+        # botbox.setContentsMargins(3, 0, 0, 0)
+        # botbox.addWidget(self.main2)
+        # # botbox.addWidget(self.bot1)
+        # self.qwbotbox.setLayout(botbox)
 
         self.main3 = QTabWidget()
         self.real_tab1 = QWidget()
@@ -3281,7 +3304,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
 
         self.page2_box_h = QHBoxLayout()
         self.page2_box_h.addWidget(self.description_box, 1)
-        self.page2_box_h.addWidget(self.qwbotbox, 1)
+        self.page2_box_h.addWidget(self.main2, 1)
         self.page2_box_h.addWidget(self.main3, 1)
         self.art_tab.setLayout(self.page2_box_h)
 
@@ -3684,12 +3707,12 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         # self.bot2.setFixedHeight(300)
         # self.bot2.setVisible(False)
 
-        self.qabotbox2 = QWidget()
-        botbox = QVBoxLayout()
-        botbox.setContentsMargins(3, 0, 0, 0)
-        botbox.addWidget(self.mainii2)
-        # botbox.addWidget(self.bot2)
-        self.qabotbox2.setLayout(botbox)
+        # self.qabotbox2 = QWidget()
+        # botbox = QVBoxLayout()
+        # botbox.setContentsMargins(3, 0, 0, 0)
+        # botbox.addWidget(self.mainii2)
+        # # botbox.addWidget(self.bot2)
+        # self.qabotbox2.setLayout(botbox)
 
         self.mainii3 = QTabWidget()
         self.real_tab2 = QWidget()
@@ -3699,7 +3722,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
 
         self.page3_v_box = QHBoxLayout()
         self.page3_v_box.addWidget(self.t2, 1)
-        self.page3_v_box.addWidget(self.qabotbox2, 1)
+        self.page3_v_box.addWidget(self.mainii2, 1)
         self.page3_v_box.addWidget(self.mainii3, 1)
         self.insp_tab.setLayout(self.page3_v_box)
 
@@ -4023,6 +4046,74 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         cursor.setPosition(restore_pos)
         self.textii2.setTextCursor(cursor)
         self.textii2.ensureCursorVisible()
+
+    def _start_inspiration_autosave(self):
+        if self.insp_backup_timer:
+            self.insp_backup_timer.stop()
+        self.insp_backup_timer = QTimer(self)
+        self.insp_backup_timer.setInterval(60 * 1000)
+        self.insp_backup_timer.timeout.connect(self._trigger_inspiration_backup)
+        self.insp_backup_timer.start()
+
+    def _trigger_inspiration_backup(self):
+        if self.insp_updating:
+            return
+        title_raw = self.leii1.text().strip()
+        if title_raw == '':
+            return
+        path_scr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+        if path_scr == '':
+            return
+        source_path = os.path.join(path_scr, f"{title_raw}.md")
+        if not os.path.exists(source_path):
+            return
+        try:
+            with open(source_path, 'r', encoding='utf-8') as fp:
+                content = fp.read()
+        except Exception:
+            return
+        safe_title = re.sub(r'[\\\\/:*?"<>|]', '_', title_raw)
+        backup_dir = self._inspiration_backup_target_dir(path_scr, safe_title)
+        threading.Thread(
+            target=self._perform_inspiration_backup,
+            args=(backup_dir, content),
+            daemon=True
+        ).start()
+
+    def _inspiration_backup_target_dir(self, base_path, safe_title):
+        backup_root = os.path.join(base_path, 'StrawberryBackups')
+        os.makedirs(backup_root, exist_ok=True)
+        target_dir = os.path.join(backup_root, safe_title)
+        os.makedirs(target_dir, exist_ok=True)
+        return target_dir
+
+    def _perform_inspiration_backup(self, target_dir, content):
+        with self._insp_backup_lock:
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_path = os.path.join(target_dir, f"{timestamp}.md")
+            try:
+                with open(backup_path, 'w', encoding='utf-8') as fp:
+                    fp.write(content)
+            except Exception:
+                return
+            limit = load_inspiration_backup_limit()
+            self._enforce_inspiration_backup_limit(target_dir, limit)
+
+    def _enforce_inspiration_backup_limit(self, target_dir, limit):
+        if limit <= 0:
+            return
+        try:
+            md_files = [os.path.join(target_dir, f) for f in os.listdir(target_dir) if f.endswith('.md')]
+        except Exception:
+            return
+        if len(md_files) <= limit:
+            return
+        md_files.sort(key=os.path.getmtime)
+        for old_file in md_files[:-limit]:
+            try:
+                os.remove(old_file)
+            except Exception:
+                continue
 
     # def _insert_inspiration_at_choice(self, insertion_text):
     #     body_now = self.textii2.toPlainText()
@@ -9105,6 +9196,24 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         self.real2.verticalScrollBar().setValue(tar_pro)
 
                 self.textii1.clear()
+            
+            if action7.isChecked():
+                full_md = ''
+                path_scr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+                if path_scr != '' and self.leii1.text() != '':
+                    tarname = str(self.leii1.text()) + ".md"
+                    fulldir = os.path.join(path_scr, tarname)
+                    if os.path.exists(fulldir):
+                        full_md = codecs.open(fulldir, 'r', encoding='utf-8').read()
+                if full_md == '':
+                    head_md = self._build_inspiration_header()
+                    body_md = self.textii2.toPlainText().rstrip('\n')
+                    foot_md = self._build_inspiration_references()
+                    full_md = head_md + '\n' + body_md + foot_md
+                newhtml = self.md2html(full_md)
+                self.real2.setHtml(newhtml)
+                # set position
+                QTimer.singleShot(100, self.scr_cha2)
 
     def addcit(self):
         path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
@@ -10232,8 +10341,10 @@ Keywords.
         if action5.isChecked():
             action10.setChecked(False)
             action10.setVisible(False)
-            self.mainii2.setVisible(False)
             self.main2.setVisible(False)
+            self.mainii2.setVisible(False)
+            # self.mainii3.setVisible(False)
+            # self.main3.setVisible(False)
             action5.setChecked(True)
             btna2.setChecked(True)
             action6.setChecked(False)
@@ -10242,8 +10353,10 @@ Keywords.
             self.t2.setVisible(True)
         else:
             action10.setVisible(True)
-            self.mainii2.setVisible(True)
             self.main2.setVisible(True)
+            self.mainii2.setVisible(True)
+            #self.mainii3.setVisible(True)
+            #self.main3.setVisible(True)
             action5.setChecked(False)
             btna2.setChecked(False)
 
@@ -10253,6 +10366,8 @@ Keywords.
             action10.setVisible(False)
             self.mainii2.setVisible(False)
             self.main2.setVisible(False)
+            # self.mainii3.setVisible(False)
+            # self.main3.setVisible(False)
             action5.setChecked(True)
             btna2.setChecked(True)
             action6.setChecked(False)
@@ -10263,6 +10378,8 @@ Keywords.
             action10.setVisible(True)
             self.mainii2.setVisible(True)
             self.main2.setVisible(True)
+            #self.mainii3.setVisible(True)
+            #self.main3.setVisible(True)
             action5.setChecked(False)
             btna2.setChecked(False)
 
@@ -10278,6 +10395,8 @@ Keywords.
             btna2.setChecked(False)
             self.mainii2.setVisible(True)
             self.main2.setVisible(True)
+            # self.main3.setVisible(True)
+            # self.mainii3.setVisible(True)
             self.btn_insia.setVisible(True)
             self.btn_edit_refsa.setVisible(True)
             self.btn_toggle_insp_viewa.setVisible(True)
@@ -10287,6 +10406,8 @@ Keywords.
             self.t2.setVisible(True)
             action6.setChecked(False)
             btna3.setChecked(False)
+            # self.main3.setVisible(True)
+            # self.mainii3.setVisible(True)
             self.btn_insia.setVisible(False)
             self.btn_edit_refsa.setVisible(False)
             self.btn_toggle_insp_viewa.setVisible(False)
@@ -10303,6 +10424,8 @@ Keywords.
             btna2.setChecked(False)
             self.mainii2.setVisible(True)
             self.main2.setVisible(True)
+            # self.main3.setVisible(True)
+            # self.mainii3.setVisible(True)
             self.btn_insia.setVisible(True)
             self.btn_edit_refsa.setVisible(True)
             self.btn_toggle_insp_viewa.setVisible(True)
@@ -10312,6 +10435,8 @@ Keywords.
             self.t2.setVisible(True)
             action6.setChecked(False)
             btna3.setChecked(False)
+            # self.main3.setVisible(True)
+            # self.mainii3.setVisible(True)
             self.btn_insia.setVisible(False)
             self.btn_edit_refsa.setVisible(False)
             self.btn_toggle_insp_viewa.setVisible(False)
@@ -10613,52 +10738,52 @@ Keywords.
             self.wings_h_box.addWidget(self.tabs)
             self.description_box.setLayout(self.wings_h_box)
 
-            qw1 = QWidget()
-            vbox1 = QVBoxLayout()
-            vbox1.setContentsMargins(0, 0, 0, 0)
-            vbox1.addWidget(self.sub_btn_sub1)
-            vbox1.addWidget(self.sub_btn_sub2)
-            vbox1.addWidget(self.sub_btn_sub3)
-            qw1.setLayout(vbox1)
+            # qw1 = QWidget()
+            # vbox1 = QVBoxLayout()
+            # vbox1.setContentsMargins(0, 0, 0, 0)
+            # vbox1.addWidget(self.sub_btn_sub1)
+            # vbox1.addWidget(self.sub_btn_sub2)
+            # vbox1.addWidget(self.sub_btn_sub3)
+            # qw1.setLayout(vbox1)
 
-            qw1_3 = QWidget()
-            vbox1_3 = QHBoxLayout()
-            vbox1_3.setContentsMargins(0, 0, 0, 0)
-            vbox1_3.addWidget(self.sub_widget0)
-            vbox1_3.addWidget(self.sub_widget1)
-            vbox1_3.addWidget(self.sub_lbl1)
-            vbox1_3.addWidget(self.sub_widget2)
-            vbox1_3.addWidget(self.sub_widget4)
-            vbox1_3.addWidget(self.sub_widget5)
-            qw1_3.setLayout(vbox1_3)
+            # qw1_3 = QWidget()
+            # vbox1_3 = QHBoxLayout()
+            # vbox1_3.setContentsMargins(0, 0, 0, 0)
+            # vbox1_3.addWidget(self.sub_widget0)
+            # vbox1_3.addWidget(self.sub_widget1)
+            # vbox1_3.addWidget(self.sub_lbl1)
+            # vbox1_3.addWidget(self.sub_widget2)
+            # vbox1_3.addWidget(self.sub_widget4)
+            # vbox1_3.addWidget(self.sub_widget5)
+            # qw1_3.setLayout(vbox1_3)
 
-            qw2 = QWidget()
-            vbox2 = QHBoxLayout()
-            vbox2.setContentsMargins(0, 0, 0, 0)
-            vbox2.addWidget(self.sub_text1)
-            vbox2.addWidget(qw1)
-            qw2.setLayout(vbox2)
+            # qw2 = QWidget()
+            # vbox2 = QHBoxLayout()
+            # vbox2.setContentsMargins(0, 0, 0, 0)
+            # vbox2.addWidget(self.sub_text1)
+            # vbox2.addWidget(qw1)
+            # qw2.setLayout(vbox2)
 
-            self.bot1 = QWidget()
-            vbox2_1 = QVBoxLayout()
-            vbox2_1.setContentsMargins(20, 0, 20, 0)
-            vbox2_1.addWidget(self.sub_real1)
-            vbox2_1.addWidget(qw1_3)
-            vbox2_1.addWidget(qw2)
-            self.bot1.setLayout(vbox2_1)
-            self.bot1.setFixedHeight(300)
-            self.bot1.setVisible(False)
+            # self.bot1 = QWidget()
+            # vbox2_1 = QVBoxLayout()
+            # vbox2_1.setContentsMargins(20, 0, 20, 0)
+            # vbox2_1.addWidget(self.sub_real1)
+            # vbox2_1.addWidget(qw1_3)
+            # vbox2_1.addWidget(qw2)
+            # self.bot1.setLayout(vbox2_1)
+            # self.bot1.setFixedHeight(300)
+            # self.bot1.setVisible(False)
 
-            self.qwbotbox = QWidget()
-            botbox = QVBoxLayout()
-            botbox.setContentsMargins(3, 0, 0, 0)
-            botbox.addWidget(self.main2)
-            botbox.addWidget(self.bot1)
-            self.qwbotbox.setLayout(botbox)
+            # self.qwbotbox = QWidget()
+            # botbox = QVBoxLayout()
+            # botbox.setContentsMargins(3, 0, 0, 0)
+            # botbox.addWidget(self.main2)
+            # # botbox.addWidget(self.bot1)
+            # self.qwbotbox.setLayout(botbox)
 
             self.page2_box_h = QHBoxLayout()
             self.page2_box_h.addWidget(self.description_box, 1)
-            self.page2_box_h.addWidget(self.qwbotbox, 1)
+            self.page2_box_h.addWidget(self.main2, 1)
             self.page2_box_h.addWidget(self.main3, 1)
             self.art_tab.setLayout(self.page2_box_h)
 
@@ -10678,52 +10803,52 @@ Keywords.
             self.page1_v_box.addWidget(self.bigwi3, 1)
             self.word_tab.setLayout(self.page1_v_box)
 
-            qa1 = QWidget()
-            vbox1 = QVBoxLayout()
-            vbox1.setContentsMargins(0, 0, 0, 0)
-            vbox1.addWidget(self.sub2_btn_sub21)
-            vbox1.addWidget(self.sub2_btn_sub22)
-            vbox1.addWidget(self.sub2_btn_sub23)
-            qa1.setLayout(vbox1)
+            # qa1 = QWidget()
+            # vbox1 = QVBoxLayout()
+            # vbox1.setContentsMargins(0, 0, 0, 0)
+            # vbox1.addWidget(self.sub2_btn_sub21)
+            # vbox1.addWidget(self.sub2_btn_sub22)
+            # vbox1.addWidget(self.sub2_btn_sub23)
+            # qa1.setLayout(vbox1)
 
-            qa1_3 = QWidget()
-            vbox1_3 = QHBoxLayout()
-            vbox1_3.setContentsMargins(0, 0, 0, 0)
-            vbox1_3.addWidget(self.sub2_widget0)
-            vbox1_3.addWidget(self.sub2_widget1)
-            vbox1_3.addWidget(self.sub2_lbl1)
-            vbox1_3.addWidget(self.sub2_widget2)
-            vbox1_3.addWidget(self.sub2_widget4)
-            vbox1_3.addWidget(self.sub2_widget5)
-            qa1_3.setLayout(vbox1_3)
+            # qa1_3 = QWidget()
+            # vbox1_3 = QHBoxLayout()
+            # vbox1_3.setContentsMargins(0, 0, 0, 0)
+            # vbox1_3.addWidget(self.sub2_widget0)
+            # vbox1_3.addWidget(self.sub2_widget1)
+            # vbox1_3.addWidget(self.sub2_lbl1)
+            # vbox1_3.addWidget(self.sub2_widget2)
+            # vbox1_3.addWidget(self.sub2_widget4)
+            # vbox1_3.addWidget(self.sub2_widget5)
+            # qa1_3.setLayout(vbox1_3)
 
-            qa2 = QWidget()
-            vbox2 = QHBoxLayout()
-            vbox2.setContentsMargins(0, 0, 0, 0)
-            vbox2.addWidget(self.sub2_text1)
-            vbox2.addWidget(qa1)
-            qa2.setLayout(vbox2)
+            # qa2 = QWidget()
+            # vbox2 = QHBoxLayout()
+            # vbox2.setContentsMargins(0, 0, 0, 0)
+            # vbox2.addWidget(self.sub2_text1)
+            # vbox2.addWidget(qa1)
+            # qa2.setLayout(vbox2)
 
-            self.bot2 = QWidget()
-            vbox2_1 = QVBoxLayout()
-            vbox2_1.setContentsMargins(20, 0, 20, 0)
-            vbox2_1.addWidget(self.sub2_real1)
-            vbox2_1.addWidget(qa1_3)
-            vbox2_1.addWidget(qa2)
-            self.bot2.setLayout(vbox2_1)
-            self.bot2.setFixedHeight(300)
-            self.bot2.setVisible(False)
+            # self.bot2 = QWidget()
+            # vbox2_1 = QVBoxLayout()
+            # vbox2_1.setContentsMargins(20, 0, 20, 0)
+            # vbox2_1.addWidget(self.sub2_real1)
+            # vbox2_1.addWidget(qa1_3)
+            # vbox2_1.addWidget(qa2)
+            # self.bot2.setLayout(vbox2_1)
+            # self.bot2.setFixedHeight(300)
+            # self.bot2.setVisible(False)
 
-            self.qabotbox2 = QWidget()
-            botbox = QVBoxLayout()
-            botbox.setContentsMargins(3, 0, 0, 0)
-            botbox.addWidget(self.mainii2)
-            botbox.addWidget(self.bot2)
-            self.qabotbox2.setLayout(botbox)
+            # self.qabotbox2 = QWidget()
+            # botbox = QVBoxLayout()
+            # botbox.setContentsMargins(3, 0, 0, 0)
+            # botbox.addWidget(self.mainii2)
+            # # botbox.addWidget(self.bot2)
+            # self.qabotbox2.setLayout(botbox)
 
             self.page3_v_box = QHBoxLayout()
             self.page3_v_box.addWidget(self.t2, 1)
-            self.page3_v_box.addWidget(self.qabotbox2, 1)
+            self.page3_v_box.addWidget(self.mainii2, 1)
             self.page3_v_box.addWidget(self.mainii3, 1)
             self.insp_tab.setLayout(self.page3_v_box)
 
@@ -10766,6 +10891,8 @@ Keywords.
                 border-radius: 4px;
                 padding: 1px;
                 color: #FFFFFF''')
+            self.mainii3.setVisible(False)
+            self.main3.setVisible(False)
 
     def addtable(self):
         if self.leii3.text() != '' and self.leii4.text() != '':
@@ -12993,7 +13120,16 @@ Keywords.
                 except Exception:
                     stored_width = int(screen_geom.width() / 2)
                 max_width = int(screen_geom.width())
-                target_width = min(max_width, max(self.new_width, min(stored_width, int(max_width / 2))))
+                if action10.isChecked():
+                    preferred_width = int(max_width / 4)
+                elif action7.isChecked():
+                    preferred_width = int(max_width * 2 / 3)
+                else:
+                    preferred_width = int(max_width / 2)
+                target_width = min(
+                    max_width,
+                    max(self.new_width, max(preferred_width, stored_width))
+                )
                 if self.pos().x() + WINDOW_WEIGHT >= SCREEN_WEIGHT:  # 右侧显示
                     target_x = SCREEN_WEIGHT - target_width - 3
                 btna4.setChecked(True)
@@ -14882,6 +15018,15 @@ class window4(QWidget):  # Customization settings
         self.other_3.setText('English')
         self.other_3.setPlaceholderText('The default is English')
 
+        self.insp_autosave_label = QLabel('Max autosave files for Inspirations:', self)
+        self.insp_autosave_combo = QComboBox(self)
+        self.insp_autosave_combo.addItems(['30', '50', '100'])
+        current_limit = load_inspiration_backup_limit()
+        if self.insp_autosave_combo.findText(str(current_limit)) == -1:
+            self.insp_autosave_combo.addItem(str(current_limit))
+        self.insp_autosave_combo.setCurrentIndex(self.insp_autosave_combo.findText(str(current_limit)))
+        self.insp_autosave_combo.currentIndexChanged.connect(self.save_inspiration_autosave_limit)
+
         t1 = QWidget()
         vboxa = QHBoxLayout()
         vboxa.setContentsMargins(0, 0, 0, 0)
@@ -14897,10 +15042,18 @@ class window4(QWidget):  # Customization settings
         vboxa.addWidget(self.other_3)
         t2.setLayout(vboxa)
 
+        t3 = QWidget()
+        vboxb = QHBoxLayout()
+        vboxb.setContentsMargins(0, 0, 0, 0)
+        vboxb.addWidget(self.insp_autosave_label)
+        vboxb.addWidget(self.insp_autosave_combo)
+        t3.setLayout(vboxb)
+
         vbox1 = QVBoxLayout()
         vbox1.setContentsMargins(20, 20, 20, 20)
         vbox1.addWidget(t1)
         vbox1.addWidget(t2)
+        vbox1.addWidget(t3)
         vbox1.addStretch()
         self.otherbar.setLayout(vbox1)
 
@@ -14915,6 +15068,9 @@ class window4(QWidget):  # Customization settings
             fulldir2 = os.path.join(fulldir1, tarname2)
             with open(fulldir2, 'w', encoding='utf-8') as f0:
                 f0.write(self.other_1.text().replace('\n', ''))
+
+    def save_inspiration_autosave_limit(self):
+        save_inspiration_backup_limit(self.insp_autosave_combo.currentText())
 
     def bot_IndexChange(self, i):
         self.bot_le1.setVisible(True)
@@ -15089,6 +15245,10 @@ class window4(QWidget):  # Customization settings
 
     def activate(self):  # 设置窗口显示
         self.show()
+        current_limit = load_inspiration_backup_limit()
+        if self.insp_autosave_combo.findText(str(current_limit)) == -1:
+            self.insp_autosave_combo.addItem(str(current_limit))
+        self.insp_autosave_combo.setCurrentIndex(self.insp_autosave_combo.findText(str(current_limit)))
         home_dir = str(Path.home())
         tarname1 = "StrawberryAppPath"
         fulldir1 = os.path.join(home_dir, tarname1)
