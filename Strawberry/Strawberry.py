@@ -8,12 +8,12 @@ import codecs
 from PyQt6.QtWidgets import (QWidget, QPushButton, QApplication,
                              QLabel, QHBoxLayout, QVBoxLayout, QLineEdit,
                              QSystemTrayIcon, QMenu, QComboBox, QDialog,
-                             QMenuBar, QFrame, QFileDialog,
+                             QMenuBar, QFrame, QFileDialog, QRubberBand,
                              QPlainTextEdit, QTabWidget, QTextEdit,
                              QGraphicsOpacityEffect, QCheckBox, QListView, QListWidget,
                              QMessageBox, QSplitter)
-from PyQt6.QtCore import Qt, QRect, QPropertyAnimation, QObjectCleanupHandler, QStringListModel, QTimer
-from PyQt6.QtGui import QAction, QIcon, QColor, QCursor, QGuiApplication, QTextCursor
+from PyQt6.QtCore import Qt, QRect, QPropertyAnimation, QObjectCleanupHandler, QStringListModel, QTimer, QThread, QPoint, QSize, pyqtSignal, QEvent, QObject
+from PyQt6.QtGui import QAction, QIcon, QColor, QCursor, QGuiApplication, QTextCursor, QImage, QPainter
 import PyQt6.QtGui
 import sys
 import webbrowser
@@ -33,6 +33,8 @@ import requests
 import html2text
 from bs4 import BeautifulSoup
 import threading
+import numpy as np
+import easyocr
 
 app = QApplication(sys.argv)
 app.setQuitOnLastWindowClosed(False)
@@ -64,6 +66,119 @@ def save_inspiration_backup_limit(limit):
     with open(INSP_BACKUP_LIMIT_FILE, 'w', encoding='utf-8') as fp:
         fp.write(str(value))
     return value
+
+APP_DIR = os.path.join(str(Path.home()), "StrawberryAppPath")
+OCR_LANG_FILE = os.path.join(APP_DIR, "ocr_language.txt")
+OCR_LANGUAGE_OPTIONS = [
+    ("Simplified Chinese + English", "ch_sim+en"),
+    ("Japanese + English", "ja+en"),
+    ("Abaza", "abq"),
+    ("Adyghe", "ady"),
+    ("Afrikaans", "af"),
+    ("Angika", "ang"),
+    ("Arabic", "ar"),
+    ("Assamese", "as"),
+    ("Avar", "ava"),
+    ("Azerbaijani", "az"),
+    ("Belarusian", "be"),
+    ("Bulgarian", "bg"),
+    ("Bihari", "bh"),
+    ("Bhojpuri", "bho"),
+    ("Bengali", "bn"),
+    ("Bosnian", "bs"),
+    ("Simplified Chinese", "ch_sim"),
+    ("Traditional Chinese", "ch_tra"),
+    ("Chechen", "che"),
+    ("Czech", "cs"),
+    ("Welsh", "cy"),
+    ("Danish", "da"),
+    ("Dargwa", "dar"),
+    ("German", "de"),
+    ("English", "en"),
+    ("Spanish", "es"),
+    ("Estonian", "et"),
+    ("Persian (Farsi)", "fa"),
+    ("French", "fr"),
+    ("Irish", "ga"),
+    ("Goan Konkani", "gom"),
+    ("Hindi", "hi"),
+    ("Croatian", "hr"),
+    ("Hungarian", "hu"),
+    ("Indonesian", "id"),
+    ("Ingush", "inh"),
+    ("Icelandic", "is"),
+    ("Italian", "it"),
+    ("Japanese", "ja"),
+    ("Kabardian", "kbd"),
+    ("Kannada", "kn"),
+    ("Korean", "ko"),
+    ("Kurdish", "ku"),
+    ("Latin", "la"),
+    ("Lak", "lbe"),
+    ("Lezghian", "lez"),
+    ("Lithuanian", "lt"),
+    ("Latvian", "lv"),
+    ("Magahi", "mah"),
+    ("Maithili", "mai"),
+    ("Maori", "mi"),
+    ("Mongolian", "mn"),
+    ("Marathi", "mr"),
+    ("Malay", "ms"),
+    ("Maltese", "mt"),
+    ("Nepali", "ne"),
+    ("Newari", "new"),
+    ("Dutch", "nl"),
+    ("Norwegian", "no"),
+    ("Occitan", "oc"),
+    ("Pali", "pi"),
+    ("Polish", "pl"),
+    ("Portuguese", "pt"),
+    ("Romanian", "ro"),
+    ("Russian", "ru"),
+    ("Serbian (cyrillic)", "rs_cyrillic"),
+    ("Serbian (latin)", "rs_latin"),
+    ("Nagpuri", "sck"),
+    ("Slovak", "sk"),
+    ("Slovenian", "sl"),
+    ("Albanian", "sq"),
+    ("Swedish", "sv"),
+    ("Swahili", "sw"),
+    ("Tamil", "ta"),
+    ("Tabassaran", "tab"),
+    ("Telugu", "te"),
+    ("Thai", "th"),
+    ("Tajik", "tjk"),
+    ("Tagalog", "tl"),
+    ("Turkish", "tr"),
+    ("Uyghur", "ug"),
+    ("Ukranian", "uk"),
+    ("Urdu", "ur"),
+    ("Uzbek", "uz"),
+    ("Vietnamese", "vi"),
+]
+
+
+def ensure_app_dir():
+    if not os.path.exists(APP_DIR):
+        os.mkdir(APP_DIR)
+    return APP_DIR
+
+
+def load_ocr_language_code():
+    ensure_app_dir()
+    if not os.path.exists(OCR_LANG_FILE):
+        with open(OCR_LANG_FILE, 'w', encoding='utf-8') as fp:
+            fp.write('en')
+        return 'en'
+    code = codecs.open(OCR_LANG_FILE, 'r', encoding='utf-8').read().strip()
+    codes = {item[1] for item in OCR_LANGUAGE_OPTIONS}
+    return code if code in codes else 'en'
+
+
+def save_ocr_language_code(code):
+    ensure_app_dir()
+    with open(OCR_LANG_FILE, 'w', encoding='utf-8') as fp:
+        fp.write(code)
 
 # Create the icon
 icon = QIcon(BasePath + "strmenu.icns")
@@ -183,7 +298,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.7', self)
+        lbl1 = QLabel('Version 2.0.8', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -646,7 +761,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.7', self)
+        self.lbl = QLabel('Current Version: v2.0.8', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -2717,6 +2832,73 @@ class TimeoutException(Exception):
     pass
 
 
+class ReaderLoader(QObject):
+    """Worker that loads easyocr.Reader on a background thread."""
+    finished = pyqtSignal(object, str)
+
+    def __init__(self, languages):
+        super().__init__()
+        self.languages = languages
+
+    def run(self):
+        try:
+            reader = easyocr.Reader(self.languages)
+            self.finished.emit(reader, "")
+        except Exception as e:
+            self.finished.emit(None, str(e))
+
+
+class SelectionOverlay(QWidget):
+    """Full-screen translucent overlay for selecting a rectangular region."""
+    regionSelected = pyqtSignal(QRect)
+
+    def __init__(self, screen_geometry: QRect, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setMouseTracking(True)
+        self.setGeometry(screen_geometry)
+        self._screen_geometry = screen_geometry
+        self._origin = QPoint()
+        self._rubberband = QRubberBand(QRubberBand.Shape.Rectangle, self)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 80))
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._origin = event.pos()
+            self._rubberband.setGeometry(QRect(self._origin, QSize()))
+            self._rubberband.show()
+
+    def mouseMoveEvent(self, event):
+        if not self._origin.isNull() and self._rubberband.isVisible():
+            rect = QRect(self._origin, event.pos()).normalized()
+            self._rubberband.setGeometry(rect)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self._rubberband.isVisible():
+            rect = self._rubberband.geometry()
+            global_rect = QRect(
+                self._screen_geometry.x() + rect.x(),
+                self._screen_geometry.y() + rect.y(),
+                rect.width(),
+                rect.height(),
+            )
+            self._rubberband.hide()
+            self.regionSelected.emit(global_rect)
+            self.close()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+
+
 class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
     def __init__(self):
         super().__init__()
@@ -2725,6 +2907,16 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.insp_updating = False
         self._insp_backup_lock = threading.Lock()
         self.insp_backup_timer = None
+        self.ocr_reader = None
+        self.ocr_reader_loading = False
+        self.ocr_reader_thread = None
+        self.ocr_overlay = None
+        self._ocr_current_screen = None
+        self._ocr_target_widget = None
+        self._ocr_last_editor = None
+        self.ocr_buttons = []
+        self._ocr_button_text = {}
+        app.installEventFilter(self)
         self.initUI()
         self._start_inspiration_autosave()
 
@@ -2914,6 +3106,162 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         except Exception as e:
             pass
 
+    def _register_ocr_button(self, button: QPushButton, default_text: str = 'OCR screenshot'):
+        self.ocr_buttons.append(button)
+        self._ocr_button_text[button] = default_text
+        button.setText(default_text)
+
+    def _set_ocr_buttons_state(self, enabled: bool, loading: bool = False):
+        for btn in self.ocr_buttons:
+            btn.setEnabled(enabled)
+            if loading:
+                btn.setText('Loading OCR model...')
+            else:
+                btn.setText(self._ocr_button_text.get(btn, btn.text()))
+
+    def _ocr_language_list(self):
+        code = load_ocr_language_code()
+        parts = code.split('+')
+        langs = []
+        for p in parts:
+            p = p.strip()
+            if p:
+                langs.append(p)
+        # easyocr works best when English is included for mixed scripts
+        if 'en' not in langs:
+            langs.append('en')
+        return list(dict.fromkeys(langs))
+
+    def start_ocr_capture(self, fallback_widget=None):
+        target = self._ocr_last_editor if isinstance(self._ocr_last_editor, (QPlainTextEdit, QTextEdit, QLineEdit)) and self._ocr_last_editor.isVisible() else fallback_widget
+        self._ocr_target_widget = target
+        if self.ocr_reader is None:
+            if self.ocr_reader_loading:
+                QMessageBox.information(self, "OCR", "OCR model is still downloading. Please wait...")
+            else:
+                self._load_ocr_reader()
+            return
+        self._start_ocr_selection()
+
+    def _load_ocr_reader(self):
+        self.ocr_reader_loading = True
+        self._set_ocr_buttons_state(False, loading=True)
+        QMessageBox.information(self, "OCR", "First use: downloading the OCR model in the background. Please wait...")
+        self.ocr_reader_thread = QThread()
+        self.ocr_reader_worker = ReaderLoader(self._ocr_language_list())
+        self.ocr_reader_worker.moveToThread(self.ocr_reader_thread)
+        self.ocr_reader_thread.started.connect(self.ocr_reader_worker.run)
+        self.ocr_reader_worker.finished.connect(self._on_reader_loaded)
+        self.ocr_reader_worker.finished.connect(self.ocr_reader_thread.quit)
+        self.ocr_reader_worker.finished.connect(self.ocr_reader_worker.deleteLater)
+        self.ocr_reader_thread.finished.connect(self.ocr_reader_thread.deleteLater)
+        self.ocr_reader_thread.start()
+
+    def _on_reader_loaded(self, reader, error_message: str):
+        self.ocr_reader_loading = False
+        self._set_ocr_buttons_state(True, loading=False)
+        if reader is None:
+            QMessageBox.warning(self, "OCR", f"Failed to load OCR model: {error_message}")
+            return
+        self.ocr_reader = reader
+        QMessageBox.information(self, "OCR", "OCR model is ready. Click OCR again to select a region.")
+
+    def _start_ocr_selection(self):
+        cursor_pos = QCursor.pos()
+        screen = QGuiApplication.screenAt(cursor_pos)
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+            if screen is None:
+                QMessageBox.warning(self, "OCR", "No available screen found for capturing.")
+                return
+        geometry = screen.geometry()
+        self._ocr_current_screen = screen
+        self.ocr_overlay = SelectionOverlay(geometry)
+        self.ocr_overlay.regionSelected.connect(self._on_region_selected)
+        self.ocr_overlay.show()
+
+    def _on_region_selected(self, global_rect: QRect):
+        self.ocr_overlay = None
+        self._capture_and_ocr(global_rect)
+
+    def _capture_and_ocr(self, rect: QRect | None = None):
+        if self.ocr_reader is None:
+            QMessageBox.information(self, "OCR", "OCR model is not ready yet. Please click OCR again after the model is loaded.")
+            return
+
+        screen = self._ocr_current_screen
+        if screen is None:
+            screen = QGuiApplication.screenAt(rect.center()) if rect is not None else QGuiApplication.screenAt(QCursor.pos())
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            QMessageBox.warning(self, "OCR", "No available screen found for capturing.")
+            return
+
+        if rect is not None:
+            x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+        else:
+            geometry = screen.geometry()
+            x, y, w, h = geometry.x(), geometry.y(), geometry.width(), geometry.height()
+
+        pixmap = screen.grabWindow(0, x, y, w, h)
+        if pixmap.isNull():
+            QMessageBox.warning(self, "OCR", "Screenshot failed. Please try again.")
+            return
+
+        image = pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+        width = image.width()
+        height = image.height()
+        ptr = image.bits()
+        ptr.setsize(image.bytesPerLine() * height)
+        arr = np.frombuffer(ptr, np.uint8).reshape((height, image.bytesPerLine() // 4, 4))
+        img_rgb = arr[:, :, :3]
+
+        try:
+            texts = self.ocr_reader.readtext(img_rgb, detail=0)
+            result = "\n".join(texts) if texts else "[No text recognized in the selected area]"
+        except Exception as e:
+            result = f"OCR Error: {e}"
+
+        self._deliver_ocr_result(result)
+
+    def _deliver_ocr_result(self, result: str):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(result)
+        widget = self._ocr_target_widget
+        if isinstance(widget, QPlainTextEdit):
+            cursor = widget.textCursor()
+            cursor.insertText(result)
+            widget.setTextCursor(cursor)
+            QMessageBox.information(self, "OCR", "OCR result inserted into the editor and copied to clipboard.")
+            return
+        if isinstance(widget, QTextEdit):
+            cursor = widget.textCursor()
+            cursor.insertText(result)
+            widget.setTextCursor(cursor)
+            QMessageBox.information(self, "OCR", "OCR result inserted into the editor and copied to clipboard.")
+            return
+        if isinstance(widget, QLineEdit):
+            widget.insert(result)
+            QMessageBox.information(self, "OCR", "OCR result inserted into the field and copied to clipboard.")
+            return
+        QMessageBox.information(self, "OCR", result + "\n\n(The result has been copied to the clipboard.)")
+
+    def cleanup_ocr(self):
+        """Gracefully stop OCR background work before quit."""
+        try:
+            if self.ocr_overlay is not None:
+                self.ocr_overlay.close()
+                self.ocr_overlay = None
+            if self.ocr_reader_thread is not None and self.ocr_reader_thread.isRunning():
+                self.ocr_reader_thread.requestInterruption()
+                self.ocr_reader_thread.quit()
+                self.ocr_reader_thread.wait(2000)
+            self.ocr_reader_thread = None
+            self.ocr_reader = None
+        except Exception:
+            pass
+
     def needpath(self):
         warn = CustomDialog_warn()
         warn.exec()
@@ -3040,6 +3388,11 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         btn_sow.clicked.connect(self.search_on_web)
         btn_sow.setFixedHeight(20)
 
+        self.btn_ocr_word = QPushButton('OCR screenshot', self)
+        self.btn_ocr_word.clicked.connect(lambda: self.start_ocr_capture(self.textw1))
+        self.btn_ocr_word.setFixedHeight(20)
+        self._register_ocr_button(self.btn_ocr_word, 'OCR screenshot')
+
         # self.btn_aiow = QPushButton('Search with AI!', self)
         # self.btn_aiow.clicked.connect(self.search_with_ai)
         # self.btn_aiow.setFixedHeight(20)
@@ -3094,6 +3447,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         vboxa = QHBoxLayout()
         vboxa.setContentsMargins(0, 0, 0, 0)
         vboxa.addWidget(btn_sow)
+        # vboxa.addWidget(self.btn_ocr_word)
         # vboxa.addWidget(self.btn_aiow)
         t9.setLayout(vboxa)
 
@@ -3116,6 +3470,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         lay1.addWidget(t5)
         lay1.addWidget(t6)
         lay1.addWidget(t9)
+        lay1.addWidget(self.btn_ocr_word)
         lay1.addWidget(self.textw1)
         lay1.addWidget(self.lew3)
         lay1.addWidget(t6_5)
@@ -3470,10 +3825,23 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.meths()
         self.toolkit()
 
+        self.btn_ocr_art = QPushButton('OCR screenshot', self)
+        self.btn_ocr_art.clicked.connect(lambda: self.start_ocr_capture(self.text11))
+        self.btn_ocr_art.setMaximumHeight(20)
+        self._register_ocr_button(self.btn_ocr_art, 'OCR screenshot')
+        self.art_ocr_row = QWidget()
+        art_ocr_layout = QHBoxLayout()
+        art_ocr_layout.setContentsMargins(0, 0, 0, 0)
+        #art_ocr_layout.addStretch()
+        art_ocr_layout.addWidget(self.btn_ocr_art)
+        #art_ocr_layout.addStretch()
+        self.art_ocr_row.setLayout(art_ocr_layout)
+
         self.wings_h_box = QVBoxLayout()
         self.wings_h_box.setContentsMargins(0, 0, 0, 0)
         self.wings_h_box.addWidget(self.upper1)
         self.wings_h_box.addWidget(self.widget0)
+        self.wings_h_box.addWidget(self.art_ocr_row)
         self.wings_h_box.addWidget(self.tabs)
         self.description_box.setLayout(self.wings_h_box)
 
@@ -3876,6 +4244,18 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         sm4.addWidget(btn_ic, 1)
         t1_8.setLayout(sm4)
 
+        self.btn_ocr_insp = QPushButton('OCR screenshot', self)
+        self.btn_ocr_insp.clicked.connect(lambda: self.start_ocr_capture(self.textii1))
+        self.btn_ocr_insp.setMaximumHeight(20)
+        self._register_ocr_button(self.btn_ocr_insp, 'OCR screenshot')
+        t1_ocr = QWidget()
+        ocr_layout = QHBoxLayout()
+        ocr_layout.setContentsMargins(0, 0, 0, 0)
+        #ocr_layout.addStretch()
+        ocr_layout.addWidget(self.btn_ocr_insp)
+        #ocr_layout.addStretch()
+        t1_ocr.setLayout(ocr_layout)
+
         t2_5 = QWidget()
         self.btn_ia1 = QPushButton('Open a script', self)
         self.btn_ia1.clicked.connect(self.openascr)
@@ -3907,6 +4287,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         b2.setContentsMargins(0, 0, 0, 0)
         b2.addWidget(t1)
         b2.addWidget(self.choosepart)
+        b2.addWidget(t1_ocr)
         b2.addWidget(self.textii1)
         b2.addWidget(t3)
         b2.addWidget(t1_4)
@@ -15970,6 +16351,11 @@ Keywords.
         if e.key() == Qt.Key.Key_Escape.value:
             self.close()
 
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.FocusIn and isinstance(obj, (QPlainTextEdit, QTextEdit, QLineEdit)):
+            self._ocr_last_editor = obj
+        return super().eventFilter(obj, event)
+
     def activate(self):  # 设置窗口显示
         SCREEN_WEIGHT = int(self.screen().availableGeometry().width())
         WINDOW_WEIGHT = int(self.width())
@@ -16569,6 +16955,16 @@ class window4(QWidget):  # Customization settings
         self.other_3.setText('English')
         self.other_3.setPlaceholderText('The default is English')
 
+        self.ocr_lang_label = QLabel('OCR language:', self)
+        self.ocr_lang_combo = QComboBox(self)
+        for name, code in OCR_LANGUAGE_OPTIONS:
+            self.ocr_lang_combo.addItem(name, code)
+        saved_code = load_ocr_language_code()
+        idx = self.ocr_lang_combo.findData(saved_code)
+        if idx != -1:
+            self.ocr_lang_combo.setCurrentIndex(idx)
+        self.ocr_lang_combo.currentIndexChanged.connect(self.ocr_language_changed)
+
         self.insp_autosave_label = QLabel('Max autosave files for Inspirations:', self)
         self.insp_autosave_combo = QComboBox(self)
         self.insp_autosave_combo.addItems(['30', '50', '100'])
@@ -16616,6 +17012,13 @@ class window4(QWidget):  # Customization settings
         vboxa.addWidget(self.other_3)
         t2.setLayout(vboxa)
 
+        t2_ocr = QWidget()
+        ocr_box = QHBoxLayout()
+        ocr_box.setContentsMargins(0, 0, 0, 0)
+        ocr_box.addWidget(self.ocr_lang_label)
+        ocr_box.addWidget(self.ocr_lang_combo)
+        t2_ocr.setLayout(ocr_box)
+
         t3 = QWidget()
         vboxb = QHBoxLayout()
         vboxb.setContentsMargins(0, 0, 0, 0)
@@ -16643,6 +17046,7 @@ class window4(QWidget):  # Customization settings
         vbox1.setContentsMargins(20, 20, 20, 20)
         vbox1.addWidget(t1)
         vbox1.addWidget(t2)
+        vbox1.addWidget(t2_ocr)
         vbox1.addWidget(t3)
         vbox1.addWidget(t4)
         vbox1.addWidget(t5)
@@ -16660,6 +17064,18 @@ class window4(QWidget):  # Customization settings
             fulldir2 = os.path.join(fulldir1, tarname2)
             with open(fulldir2, 'w', encoding='utf-8') as f0:
                 f0.write(self.other_1.text().replace('\n', ''))
+
+    def ocr_language_changed(self, index):
+        code = self.ocr_lang_combo.currentData()
+        if not code:
+            return
+        save_ocr_language_code(code)
+        if 'w3' in globals():
+            try:
+                w3.ocr_reader = None
+                w3.ocr_reader_loading = False
+            except Exception:
+                pass
 
     def save_inspiration_autosave_limit(self):
         save_inspiration_backup_limit(self.insp_autosave_combo.currentText())
@@ -17521,5 +17937,6 @@ btna3.triggered.connect(w5.w3.editoron2)
 btna4.triggered.connect(w5.w3.pin_a_tab)
 btna5.triggered.connect(w5.w3.realon2)
 btna6.triggered.connect(w5.activate)
+app.aboutToQuit.connect(w5.w3.cleanup_ocr)
 app.setStyleSheet(style_sheet_ori)
 app.exec()
