@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QWidget, QPushButton, QApplication,
                              QSystemTrayIcon, QMenu, QComboBox, QDialog,
                              QMenuBar, QFrame, QFileDialog,
                              QPlainTextEdit, QTabWidget, QTextEdit,
-                             QGraphicsOpacityEffect, QCheckBox, QListView,
+                             QGraphicsOpacityEffect, QCheckBox, QListView, QListWidget,
                              QMessageBox, QSplitter)
 from PyQt6.QtCore import Qt, QRect, QPropertyAnimation, QObjectCleanupHandler, QStringListModel, QTimer
 from PyQt6.QtGui import QAction, QIcon, QColor, QCursor, QGuiApplication, QTextCursor
@@ -183,7 +183,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.6', self)
+        lbl1 = QLabel('Version 2.0.7', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -646,7 +646,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.6', self)
+        self.lbl = QLabel('Current Version: v2.0.7', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -2386,6 +2386,331 @@ class CustomDialog_list_cite4(QDialog):  # cite4
 
     def cancel(self):  # 设置取消键的功能
         self.close()
+    
+
+class CustomDialog_edit_reference(QDialog):  # cite1
+    def __init__(self):
+        super().__init__()
+        self.bib_entries = []
+        self.inline_entries = []
+        self.initUI()
+
+    def initUI(self):
+        self.setUpMainWindow()
+        self.center()
+        self.resize(400, 400)
+        self.setFocus()
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+    def setUpMainWindow(self):
+
+        self.warn_lbl = QLabel('Edits here are temporary: changes will be overwritten the next time you update/insert citations. Finish all edits before modifying here.', self)
+        self.warn_lbl.setWordWrap(True)
+        self.warn_lbl.setVisible(False)
+        self.editor = QTextEdit(self)
+        self.editor.setPlainText(codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read())
+        self.editor.setVisible(False)
+
+        self.view_switch = QComboBox(self)
+        self.view_switch.addItems(['BibTeX', 'In-text'])
+        self.view_switch.currentIndexChanged.connect(self.toggle_view_mode)
+
+        self.bib_list = QListWidget(self)
+        self.bib_view = QTextEdit(self)
+        self.bib_view.setReadOnly(False)
+        self.bib_view.setPlaceholderText('BibTeX snippet')
+        self.inline_view = QLineEdit(self)
+        self.inline_view.setReadOnly(False)
+        self.inline_view.setPlaceholderText('Inline citation')
+        self.btn_delete_entry = QPushButton('Delete', self)
+        self.btn_delete_entry.setStyleSheet('color: red')
+        self.btn_delete_entry.clicked.connect(self.mark_delete_entry)
+        self.btn_delete_entry.setEnabled(False)
+        self.bib_list.itemSelectionChanged.connect(self.on_bib_selection)
+        self.bib_view.textChanged.connect(self.on_bib_text_changed)
+        self.inline_view.textChanged.connect(self.on_inline_text_changed)
+
+        self.load_bib_and_inline()
+        
+        btn_save = QPushButton('Save', self)
+        btn_save.clicked.connect(self.save_refs)
+        btn_cancel = QPushButton('Cancel', self)
+        btn_cancel.clicked.connect(self.cancel)
+
+        w1 = QWidget()
+        blay1 = QHBoxLayout()
+        blay1.setContentsMargins(0, 0, 0, 0)
+        blay1.addWidget(self.btn_delete_entry)
+        blay1.addWidget(btn_save)
+        blay1.addWidget(btn_cancel)
+        w1.setLayout(blay1)
+
+        w3 = QWidget()
+        blay3 = QVBoxLayout()
+        blay3.setContentsMargins(20, 20, 20, 20)
+        blay3.addWidget(self.warn_lbl)
+        blay3.addWidget(self.view_switch)
+        bib_area = QHBoxLayout()
+        bib_left = QVBoxLayout()
+        # bib_left.addWidget(QLabel('Bib entries:', self))
+        bib_left.addWidget(self.bib_list)
+        # bib_left.addWidget(self.btn_delete_entry)
+        bib_right = QVBoxLayout()
+        # bib_right.addWidget(QLabel('BibTeX snippet:', self))
+        bib_right.addWidget(self.inline_view)
+        bib_right.addWidget(self.bib_view)
+        # bib_right.addWidget(QLabel('Inline citation (selected format):', self))
+        bib_area.addLayout(bib_left)
+        bib_area.addLayout(bib_right)
+        bib_wrap = QWidget()
+        bib_wrap.setLayout(bib_area)
+        blay3.addWidget(bib_wrap)
+        blay3.addWidget(self.editor)
+        blay3.addWidget(w1)
+        w3.setLayout(blay3)
+        w3.setObjectName("Main")
+
+        blayend = QHBoxLayout()
+        blayend.setContentsMargins(0, 0, 0, 0)
+        blayend.addWidget(w3)
+        self.setLayout(blayend)
+    
+    def save_refs(self):
+        if self.view_switch.currentIndex() == 0:
+            # BibTeX mode
+            reply = QMessageBox.question(
+                self,
+                'Confirm save',
+                'Save changes to BibTeX and inline citations?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            title = ''
+            try:
+                title = w5.w3._get_citation_title_key()
+            except Exception:
+                title = w5.w3.leii1.text() if hasattr(w5, 'w3') else ''
+            script_dir = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+            if title == '' or script_dir == '':
+                self.close()
+                return
+            cit_dir = os.path.join(script_dir, 'StrawberryCitations', title)
+            os.makedirs(cit_dir, exist_ok=True)
+            bib_file = os.path.join(cit_dir, f"{title}.bib")
+            # write cached bib entries
+            try:
+                with open(bib_file, 'w', encoding='utf-8') as bf:
+                    bf.write('\n\n'.join(self.bib_entries))
+            except Exception:
+                pass
+            # clear existing format files
+            for fname in os.listdir(cit_dir):
+                if fname.startswith(f"{title}-") and fname.endswith('.txt'):
+                    try:
+                        os.remove(os.path.join(cit_dir, fname))
+                    except Exception:
+                        continue
+            # regenerate formats per entry
+            for entry in self.bib_entries:
+                try:
+                    w5.w3._generate_csl_citations(title, script_dir, latest_bib_block=entry)
+                except Exception:
+                    # ensure an empty inline file exists for the selected format if generation failed
+                    home_dir = str(Path.home())
+                    base_dir = os.path.join(home_dir, "StrawberryAppPath")
+                    csl_dir = os.path.join(base_dir, "CitationFormat")
+                    selected_file = os.path.join(csl_dir, "selected_format.txt")
+                    fmt = ''
+                    try:
+                        fmt = codecs.open(selected_file, 'r', encoding='utf-8').read().strip()
+                    except Exception:
+                        fmt = ''
+                    if fmt == '':
+                        fmt = 'quickcite'
+                    if fmt.lower().startswith('quick'):
+                        fmt = 'quickcite'
+                    if fmt.lower().endswith('.csl'):
+                        fmt = fmt[:-4]
+                    inline_file = os.path.join(script_dir, 'StrawberryCitations', title, f"{title}-{fmt}-in.txt")
+                    try:
+                        with open(inline_file, 'a', encoding='utf-8') as inf:
+                            inf.write('')
+                    except Exception:
+                        pass
+                    continue
+            # override inline file with edited inline entries for selected format
+            home_dir = str(Path.home())
+            base_dir = os.path.join(home_dir, "StrawberryAppPath")
+            csl_dir = os.path.join(base_dir, "CitationFormat")
+            selected_file = os.path.join(csl_dir, "selected_format.txt")
+            fmt = ''
+            try:
+                fmt = codecs.open(selected_file, 'r', encoding='utf-8').read().strip()
+            except Exception:
+                fmt = ''
+            if fmt == '':
+                fmt = 'quickcite'
+            if fmt.lower().startswith('quick'):
+                fmt = 'quickcite'
+            if fmt.lower().endswith('.csl'):
+                fmt = fmt[:-4]
+            inline_file = os.path.join(cit_dir, f"{title}-{fmt}-in.txt")
+            try:
+                with open(inline_file, 'w', encoding='utf-8') as inf:
+                    inf.write('\n'.join(self.inline_entries))
+            except Exception:
+                pass
+            # rebuild path_ref from selected format and write back to md
+            try:
+                w5.w3._apply_selected_format_to_refs()
+            except Exception:
+                pass
+        else:
+            # In-text mode
+            with open(BasePath + 'path_ref.txt', 'w', encoding='utf-8') as fp:
+                fp.write(self.editor.toPlainText())
+            if w5.w3.leii1.text() != '':
+                path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+                if path1 != '':
+                    tarname1 = str(w5.w3.leii1.text()) + ".md"
+                    fulldir1 = os.path.join(path1, tarname1)
+                    body_text = w5.w3._strip_inspiration_body(w5.w3.textii2.toPlainText()) if w5.w3.insp_show_full else w5.w3.textii2.toPlainText()
+                    with open(fulldir1, 'w', encoding='utf-8') as f1:
+                        f1.write(w5.w3._compose_inspiration_file(body_text))
+        self.close()
+
+    def center(self):  # 设置窗口居中
+        # Get the primary screen's geometry
+        screen_geometry = self.screen().availableGeometry()
+
+        # Calculate the centered position
+        x_center = int((screen_geometry.width() / 2) - (self.width() / 4))
+        y_center = (screen_geometry.height() - self.height()) // 2
+
+        # Move the window to the center position
+        self.setGeometry(QRect(x_center, y_center, self.width(), self.height()))
+
+    def cancel(self):  # 设置取消键的功能
+        self.close()
+
+    def load_bib_and_inline(self):
+        self.bib_entries = []
+        self.inline_entries = []
+        self.bib_list.clear()
+        try:
+            title = w5.w3._get_citation_title_key()
+        except Exception:
+            title = w5.w3.leii1.text() if hasattr(w5, 'w3') else ''
+        script_dir = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+        if title == '' or script_dir == '':
+            return
+        bib_file = os.path.join(script_dir, 'StrawberryCitations', title, f"{title}.bib")
+        if os.path.exists(bib_file):
+            try:
+                bib_txt = codecs.open(bib_file, 'r', encoding='utf-8').read()
+                import re as _re
+                matches = list(_re.finditer(r'@.*?\n}\s*', bib_txt, _re.DOTALL))
+                for m in matches:
+                    self.bib_entries.append(m.group(0).strip())
+                for i in range(len(self.bib_entries)):
+                    self.bib_list.addItem(str(i + 1))
+            except Exception:
+                pass
+        # inline entries for selected format
+        home_dir = str(Path.home())
+        base_dir = os.path.join(home_dir, "StrawberryAppPath")
+        csl_dir = os.path.join(base_dir, "CitationFormat")
+        selected_file = os.path.join(csl_dir, "selected_format.txt")
+        fmt = ''
+        try:
+            fmt = codecs.open(selected_file, 'r', encoding='utf-8').read().strip()
+        except Exception:
+            fmt = ''
+        if fmt == '':
+            fmt = 'quickcite'
+        if fmt.lower().startswith('quick'):
+            fmt = 'quickcite'
+        if fmt.lower().endswith('.csl'):
+            fmt = fmt[:-4]
+        inline_file = os.path.join(script_dir, 'StrawberryCitations', title, f"{title}-{fmt}-in.txt")
+        if os.path.exists(inline_file):
+            try:
+                lines = codecs.open(inline_file, 'r', encoding='utf-8').read().split('\n')
+                self.inline_entries = [l for l in lines if l.strip() != '']
+            except Exception:
+                self.inline_entries = []
+        self.btn_delete_entry.setEnabled(False)
+        self.bib_view.clear()
+        self.inline_view.clear()
+
+    def on_bib_selection(self):
+        idx = self.bib_list.currentRow()
+        if idx < 0 or idx >= len(self.bib_entries):
+            self.btn_delete_entry.setEnabled(False)
+            self.bib_view.clear()
+            self.inline_view.clear()
+            return
+        self.btn_delete_entry.setEnabled(True)
+        self.bib_view.setPlainText(self.bib_entries[idx])
+        if idx < len(self.inline_entries):
+            self.inline_view.setText(self.inline_entries[idx])
+        else:
+            self.inline_view.clear()
+
+    def on_bib_text_changed(self):
+        idx = self.bib_list.currentRow()
+        if idx >= 0 and idx < len(self.bib_entries):
+            self.bib_entries[idx] = self.bib_view.toPlainText()
+
+    def on_inline_text_changed(self):
+        idx = self.bib_list.currentRow()
+        if idx >= 0:
+            while len(self.inline_entries) <= idx:
+                self.inline_entries.append('')
+            self.inline_entries[idx] = self.inline_view.text()
+
+    def mark_delete_entry(self):
+        idx = self.bib_list.currentRow()
+        try:
+            title = w5.w3._get_citation_title_key()
+        except Exception:
+            title = w5.w3.leii1.text() if hasattr(w5, 'w3') else ''
+        script_dir = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+        if idx < 0 or idx >= len(self.bib_entries) or title == '' or script_dir == '':
+            return
+        reply = QMessageBox.question(
+            self,
+            'Confirm delete',
+            'This will mark the selected BibTeX entry as DELETED (placeholder). Continue?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        placeholder = "@article{DELETED,\n  title = {TO_BE_DELETED}\n}\n"
+        self.bib_entries[idx] = placeholder
+        bib_file = os.path.join(script_dir, 'StrawberryCitations', title, f"{title}.bib")
+        try:
+            with open(bib_file, 'w', encoding='utf-8') as bf:
+                bf.write('\n\n'.join(self.bib_entries))
+        except Exception:
+            pass
+        self.bib_view.setPlainText(placeholder)
+
+    def toggle_view_mode(self, i):
+        show_bib = (i == 0)
+        show_in = (i != 0)
+        self.editor.setVisible(not show_bib)
+        self.bib_list.setVisible(show_bib)
+        self.bib_view.setVisible(show_bib)
+        self.inline_view.setVisible(show_bib)
+        self.btn_delete_entry.setVisible(show_bib)
+        self.warn_lbl.setVisible(show_in)
+        if show_bib:
+            self.load_bib_and_inline()
 
 
 class TimeoutException(Exception):
@@ -2725,7 +3050,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.textw1.setPlaceholderText('Explanations')
 
         self.lew3 = QLineEdit(self)
-        self.lew3.setPlaceholderText('Tags (Use 、if there are many)')
+        self.lew3.setPlaceholderText('Tags (Use 、or + if there are many)')
 
         t6_5 = QWidget()
         btn_makecard = QPushButton('Make a basic card!', self)
@@ -2914,7 +3239,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.read_t2 = QWidget()
         self.lblread_2 = QLabel('Authors:', self)
         self.le2 = QLineEdit(self)
-        self.le2.setPlaceholderText('Use 、if there are many and % after translators')
+        self.le2.setPlaceholderText('Use 、or + if there are many and % after translators')
         b2 = QHBoxLayout()
         b2.setContentsMargins(0, 0, 0, 0)
         b2.addWidget(self.lblread_2)
@@ -2924,7 +3249,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.read_t7 = QWidget()
         lbl7 = QLabel('Institutes:', self)
         self.le7 = QLineEdit(self)
-        self.le7.setPlaceholderText('Use 、if there are many')
+        self.le7.setPlaceholderText('Use 、or + if there are many')
         b7 = QHBoxLayout()
         b7.setContentsMargins(0, 0, 0, 0)
         b7.addWidget(lbl7)
@@ -2972,10 +3297,30 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         b4.addWidget(self.le4_1)
         self.read_t4.setLayout(b4)
 
+        self.read_t4_doi = QWidget()
+        lbldoi = QLabel('DOI:', self)
+        self.le_doi = QLineEdit(self)
+        self.le_doi.setPlaceholderText('10.xxxx/xxxxxx')
+        b4_doi = QHBoxLayout()
+        b4_doi.setContentsMargins(0, 0, 0, 0)
+        b4_doi.addWidget(lbldoi)
+        b4_doi.addWidget(self.le_doi)
+        self.read_t4_doi.setLayout(b4_doi)
+
+        self.read_t4_isbn = QWidget()
+        lblisbn = QLabel('ISBN:', self)
+        self.le_isbn = QLineEdit(self)
+        self.le_isbn.setPlaceholderText('978-xxxxxx')
+        b4_isbn = QHBoxLayout()
+        b4_isbn.setContentsMargins(0, 0, 0, 0)
+        b4_isbn.addWidget(lblisbn)
+        b4_isbn.addWidget(self.le_isbn)
+        self.read_t4_isbn.setLayout(b4_isbn)
+
         self.read_t5 = QWidget()
         lbl5 = QLabel('Tags:', self)
         self.le5 = QLineEdit(self)
-        self.le5.setPlaceholderText('Use 、if there are many')
+        self.le5.setPlaceholderText('Use 、or + if there are many')
         b5 = QHBoxLayout()
         b5.setContentsMargins(0, 0, 0, 0)
         b5.addWidget(lbl5)
@@ -3074,6 +3419,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         supper1.addWidget(self.read_t8)
         supper1.addWidget(self.web_t8)
         supper1.addWidget(self.read_t4)
+        supper1.addWidget(self.read_t4_doi)
+        supper1.addWidget(self.read_t4_isbn)
         supper1.addWidget(self.read_t5)
         supper1.addWidget(self.read_t6)
         self.upper1.setLayout(supper1)
@@ -3451,19 +3798,34 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         b1_4.addWidget(self.btn_template)
         t1_4.setLayout(b1_4)
 
+        # self.csl_label = QLabel('Citation format:', self)
+        self.csl_combo = QComboBox(self)
+        csl_options, csl_selected = self.load_csl_options()
+        self.csl_combo.addItems(csl_options)
+        if self.csl_combo.findText(csl_selected) != -1:
+            self.csl_combo.setCurrentIndex(self.csl_combo.findText(csl_selected))
+        self.csl_combo.currentIndexChanged.connect(self.csl_index_changed)
+        self.csl_combo.showPopup = self._csl_show_popup
+        # t1_4_csl = QWidget()
+        # b1_4_csl = QHBoxLayout()
+        # b1_4_csl.setContentsMargins(0, 0, 0, 0)
+        # # b1_4_csl.addWidget(self.csl_label)
+        # b1_4_csl.addWidget(self.csl_combo)
+        # t1_4_csl.setLayout(b1_4_csl)
+
         self.leiinote = QLineEdit(self)
         self.leiinote.setPlaceholderText('Always-on remarks (blank = none)')
 
         t1_5 = QWidget()
         self.leii2 = QLineEdit(self)
         self.leii2.setPlaceholderText('Number (blank = auto mode)')
-        btn_ia = QPushButton('Insert citation', self)
-        btn_ia.clicked.connect(self.addcit)
-        btn_ia.setMaximumHeight(20)
+        self.btn_ia = QPushButton('Insert citation', self)
+        self.btn_ia.clicked.connect(self.addcit)
+        self.btn_ia.setMaximumHeight(20)
         sm = QHBoxLayout()
         sm.setContentsMargins(0, 0, 0, 0)
         sm.addWidget(self.leii2, 1)
-        sm.addWidget(btn_ia, 1)
+        sm.addWidget(self.btn_ia, 1)
         t1_5.setLayout(sm)
 
         t1_5_1 = QWidget()
@@ -3515,15 +3877,15 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         t1_8.setLayout(sm4)
 
         t2_5 = QWidget()
-        btn_ia1 = QPushButton('Open a script', self)
-        btn_ia1.clicked.connect(self.openascr)
-        btn_ia1.setMaximumHeight(20)
+        self.btn_ia1 = QPushButton('Open a script', self)
+        self.btn_ia1.clicked.connect(self.openascr)
+        self.btn_ia1.setMaximumHeight(20)
         btn_ib1 = QPushButton('Close current file', self)
         btn_ib1.clicked.connect(self.clinp)
         btn_ib1.setMaximumHeight(20)
         sm0 = QHBoxLayout()
         sm0.setContentsMargins(0, 0, 0, 0)
-        sm0.addWidget(btn_ia1, 1)
+        sm0.addWidget(self.btn_ia1, 1)
         sm0.addWidget(btn_ib1, 1)
         t2_5.setLayout(sm0)
 
@@ -3548,6 +3910,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         b2.addWidget(self.textii1)
         b2.addWidget(t3)
         b2.addWidget(t1_4)
+        b2.addWidget(self.csl_combo)
         b2.addWidget(self.leiinote)
         b2.addWidget(t1_5)
         b2.addWidget(t1_5_1)
@@ -3745,6 +4108,99 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         if i != 8:
             self.btn_template.setVisible(False)
 
+    def _ensure_csl_files(self):
+        home_dir = str(Path.home())
+        base_dir = os.path.join(home_dir, "StrawberryAppPath")
+        if not os.path.exists(base_dir):
+            os.mkdir(base_dir)
+        csl_dir = os.path.join(base_dir, "CitationFormat")
+        if not os.path.exists(csl_dir):
+            os.mkdir(csl_dir)
+        formats_file = os.path.join(csl_dir, "formats.txt")
+        if not os.path.exists(formats_file):
+            with open(formats_file, 'a', encoding='utf-8') as f0:
+                f0.write('')
+        selected_file = os.path.join(csl_dir, "selected_format.txt")
+        if not os.path.exists(selected_file):
+            with open(selected_file, 'w', encoding='utf-8') as f0:
+                f0.write('Quick cite (defaut)')
+        return formats_file, selected_file
+
+    def load_csl_options(self):
+        formats_file, selected_file = self._ensure_csl_files()
+        formats = codecs.open(formats_file, 'r', encoding='utf-8').read().split('\n')
+        formats = [i for i in formats if i.strip() != '']
+        selected = codecs.open(selected_file, 'r', encoding='utf-8').read().strip()
+        if selected == '':
+            selected = 'Quick cite (defaut)'
+        options = ['Quick cite (defaut)'] + formats
+        if selected not in options:
+            selected = 'Quick cite (defaut)'
+        return options, selected
+
+    def csl_index_changed(self, idx):
+        _, selected_file = self._ensure_csl_files()
+        with open(selected_file, 'w', encoding='utf-8') as f0:
+            f0.write(self.csl_combo.currentText())
+
+    def _csl_show_popup(self):
+        csl_options, csl_selected = self.load_csl_options()
+        current_text = self.csl_combo.currentText()
+        self.csl_combo.blockSignals(True)
+        self.csl_combo.clear()
+        self.csl_combo.addItems(csl_options)
+        if self.csl_combo.findText(current_text) != -1:
+            self.csl_combo.setCurrentIndex(self.csl_combo.findText(current_text))
+        elif self.csl_combo.findText(csl_selected) != -1:
+            self.csl_combo.setCurrentIndex(self.csl_combo.findText(csl_selected))
+        else:
+            self.csl_combo.setCurrentIndex(0)
+        self.csl_combo.blockSignals(False)
+        QComboBox.showPopup(self.csl_combo)
+
+    def _ensure_citation_format_list(self):
+        home_dir = str(Path.home())
+        base_dir = os.path.join(home_dir, "StrawberryAppPath")
+        if not os.path.exists(base_dir):
+            os.mkdir(base_dir)
+        csl_dir = os.path.join(base_dir, "CitationFormat")
+        if not os.path.exists(csl_dir):
+            os.mkdir(csl_dir)
+        list_file = os.path.join(csl_dir, "formats.txt")
+        if not os.path.exists(list_file):
+            with open(list_file, 'a', encoding='utf-8') as f0:
+                f0.write('')
+        formats = codecs.open(list_file, 'r', encoding='utf-8').read().split('\n')
+        formats = [i for i in formats if i.strip() != '']
+        return formats
+
+    def _init_citation_files(self, title, script_dir):
+        title = title or self._get_citation_title_key()
+        if title == '' or script_dir == '':
+            return
+        cit_dir = os.path.join(script_dir, 'StrawberryCitations')
+        if not os.path.exists(cit_dir):
+            os.mkdir(cit_dir)
+        sub_dir = os.path.join(cit_dir, title)
+        if not os.path.exists(sub_dir):
+            os.mkdir(sub_dir)
+        formats = ['quickcite'] + self._ensure_citation_format_list()
+        for fmt in formats:
+            base_name = f"{title}-{fmt}.txt"
+            base_path = os.path.join(sub_dir, base_name)
+            if not os.path.exists(base_path):
+                with open(base_path, 'a', encoding='utf-8') as f0:
+                    f0.write('')
+            inline_name = f"{title}-{fmt}-in.txt"
+            inline_path = os.path.join(sub_dir, inline_name)
+            if not os.path.exists(inline_path):
+                with open(inline_path, 'a', encoding='utf-8') as f0:
+                    f0.write('')
+        bib_path = os.path.join(sub_dir, f"{title}.bib")
+        if not os.path.exists(bib_path):
+            with open(bib_path, 'a', encoding='utf-8') as f0:
+                f0.write('')
+
     def opentemplate(self):
         home_dir = str(Path.home())
         tarname1 = "StrawberryAppPath"
@@ -3801,14 +4257,42 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
     def notify(self, CMD, title, text):
         subprocess.call(['osascript', '-e', CMD, title, text])
 
+    def _set_citation_controls_enabled(self, enabled: bool):
+        for ctl_name in ['csl_combo', 'btn_insia', 'btn_edit_refsa', 'btn_ia', 'btn_edit_refs']:
+            ctl = getattr(self, ctl_name, None)
+            if ctl is not None:
+                ctl.setEnabled(enabled)
+
     def chooseind(self, i):
         if i == 0 and self.leii1.text() != '':
             with open(BasePath + 'path_pat.txt', 'w', encoding='utf-8') as f0:
                 f0.write('')
         if i != 0 and i != 1 and self.leii1.text() != '':
             path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
-            tarname1 = str(self.leii1.text()) + ".md"
-            fulldir1 = os.path.join(path1, tarname1)
+            def _candidate_names(raw):
+                cands = [raw]
+                try:
+                    import re as _re
+                    base1 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', raw).rstrip()
+                    if base1 and base1 not in cands:
+                        cands.append(base1)
+                    base2 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', base1).rstrip()
+                    if base2 and base2 not in cands:
+                        cands.append(base2)
+                except Exception:
+                    pass
+                return cands
+
+            fulldir1 = ''
+            for nm in _candidate_names(str(self.leii1.text())):
+                tarname1 = nm + ".md"
+                candidate = os.path.join(path1, tarname1)
+                if os.path.exists(candidate):
+                    fulldir1 = candidate
+                    break
+            if fulldir1 == '':
+                tarname1 = str(self.leii1.text()) + ".md"
+                fulldir1 = os.path.join(path1, tarname1)
             maintxt = codecs.open(fulldir1, 'r', encoding='utf-8').read()
             if i < self.choosepart.count() - 1:
                 tarnum = int(self.choosepart.currentIndex() + 1)
@@ -3993,15 +4477,79 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
 
     def _strip_inspiration_body(self, full_text):
         body = full_text.replace('\r', '')
-        head_pattern = r'^<document-start>\s*\n<!--Title:.*?-->\s*'
-        body = re.sub(head_pattern, '', body, count=1)
+        # strip header even if slightly malformed (e.g., {!--Title: ...--})
+        body = re.sub(r'^\s*<document-start>\s*[\n\r]*', '', body, count=1)
+        body = re.sub(r'^\s*[<{]!--Title:.*?--[>}]?\s*', '', body, count=1)
         ref_idx = body.find('\n## References ')
         if ref_idx != -1:
             body = body[:ref_idx]
         return body.lstrip('\n')
 
     def _build_inspiration_header(self):
-        return '<document-start>\n<!--Title: ' + str(self.leii1.text()) + '-->'
+        def _candidate_names(raw):
+            cands = [raw]
+            try:
+                import re as _re
+                base1 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', raw).rstrip()
+                if base1 and base1 not in cands:
+                    cands.append(base1)
+                base2 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', base1).rstrip()
+                if base2 and base2 not in cands:
+                    cands.append(base2)
+            except Exception:
+                pass
+            return cands
+
+        def _resolve_path(dir_path, raw_name, ext):
+            for nm in _candidate_names(raw_name):
+                cand = os.path.join(dir_path, nm + ext)
+                if os.path.exists(cand):
+                    return cand
+            return os.path.join(dir_path, raw_name + ext)
+
+        existing_title = ''
+        try:
+            path_scr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+            if path_scr != '' and self.leii1.text() != '':
+                fulldir = _resolve_path(path_scr, str(self.leii1.text()), ".md")
+                if os.path.exists(fulldir):
+                    contend = codecs.open(fulldir, 'r', encoding='utf-8').read()
+                    patt = re.compile(r'<!--Title: (.*?)-->')
+                    res = patt.findall(contend)
+                    res = ''.join(res).strip()
+                    if res != '':
+                        existing_title = res
+        except Exception:
+            existing_title = ''
+        if existing_title != '':
+            self._cached_title_key = existing_title
+            return '<document-start>\n<!--Title: ' + existing_title + '-->'
+        cached_title = getattr(self, '_cached_title_key', '')
+        if cached_title != '':
+            return '<document-start>\n<!--Title: ' + cached_title + '-->'
+        ts = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        base_title = str(self.leii1.text()).strip()
+        new_title = (base_title + ' ' + ts).strip() if base_title != '' else ts
+        self._cached_title_key = new_title
+        return '<document-start>\n<!--Title: ' + new_title + '-->'
+
+    def _get_citation_title_key(self):
+        title_plain = str(self.leii1.text())
+        path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+        if title_plain != '' and path1 != '':
+            tarname = title_plain + ".md"
+            fulldir = os.path.join(path1, tarname)
+            if os.path.exists(fulldir):
+                try:
+                    contend = codecs.open(fulldir, 'r', encoding='utf-8').read()
+                    patt = re.compile(r'<!--Title: (.*?)-->')
+                    res = patt.findall(contend)
+                    res = ''.join(res).strip()
+                    if res != '':
+                        return res
+                except Exception:
+                    pass
+        return title_plain
 
     def _build_inspiration_references(self):
         tcy = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').readlines()
@@ -4166,120 +4714,122 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self._apply_inspiration_view()
 
     def edit_references_dialog(self):
-        dlg = QDialog(self)
-        dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        #dlg.setAttribute(Qt.WA_TranslucentBackground, True)  # 允许透明背景以显示圆角
-        dlg.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        warn = CustomDialog_edit_reference()
+        warn.exec()
+        # dlg = QDialog(self)
+        # dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        # #dlg.setAttribute(Qt.WA_TranslucentBackground, True)  # 允许透明背景以显示圆角
+        # dlg.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
-        # 用一个容器部件来承载内容并加圆角背景
-        container = QWidget(dlg)
-        container.setStyleSheet("""
-            QWidget {
-                border: 1px solid #ECECEC;
-                background: #ECECEC;
-                border-radius: 9px;
-            }
-            QPushButton{
-                border: 1px outset grey;
-                background-color: #FFFFFF;
-                border-radius: 4px;
-                padding: 1px;
-                color: #000000
-            }
-            QPushButton:pressed{
-                border: 1px outset grey;
-                background-color: #0085FF;
-                border-radius: 4px;
-                padding: 1px;
-                color: #FFFFFF
-            }
-            QTextEdit{
-                border: 1px solid grey;  
-                border-radius:4px;
-                padding: 1px 5px 1px 3px; 
-                background-clip: border;
-                background-color: #F3F2EE;
-                color: #000000;
-                font: 14pt Times New Roman;
-            }
-        """)
+        # # 用一个容器部件来承载内容并加圆角背景
+        # container = QWidget(dlg)
+        # container.setStyleSheet("""
+        #     QWidget {
+        #         border: 1px solid #ECECEC;
+        #         background: #ECECEC;
+        #         border-radius: 9px;
+        #     }
+        #     QPushButton{
+        #         border: 1px outset grey;
+        #         background-color: #FFFFFF;
+        #         border-radius: 4px;
+        #         padding: 1px;
+        #         color: #000000
+        #     }
+        #     QPushButton:pressed{
+        #         border: 1px outset grey;
+        #         background-color: #0085FF;
+        #         border-radius: 4px;
+        #         padding: 1px;
+        #         color: #FFFFFF
+        #     }
+        #     QTextEdit{
+        #         border: 1px solid grey;  
+        #         border-radius:4px;
+        #         padding: 1px 5px 1px 3px; 
+        #         background-clip: border;
+        #         background-color: #F3F2EE;
+        #         color: #000000;
+        #         font: 14pt Times New Roman;
+        #     }
+        # """)
 
-        lay = QVBoxLayout(container)
-        editor = QTextEdit(container)
-        editor.setPlainText(codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read())
-        editor.setStyleSheet('''
-            QTextEdit{
-                border: 1px solid grey;  
-                border-radius:4px;
-                padding: 1px 5px 1px 3px; 
-                background-clip: border;
-                background-color: #F3F2EE;
-                color: #000000;
-                font: 14pt Times New Roman;
-            }
-            QTextEdit QScrollBar:vertical {
-                width: 6px;
-                background: transparent;
-                margin: 2px 1px 2px 1px;
-            }
-            QTextEdit QScrollBar::handle:vertical {
-                background: rgba(0,0,0,0.18);
-                border-radius: 3px;
-                min-height: 30px;
-            }
-            QTextEdit QScrollBar::handle:vertical:hover,
-            QTextEdit QScrollBar::handle:vertical:pressed {
-                background: rgba(0,0,0,0.35);
-                border-radius: 3px;
-            }
-            QTextEdit QScrollBar::add-line:vertical,
-            QTextEdit QScrollBar::sub-line:vertical {
-                height: 0;
-                border: none;
-                background: transparent;
-            }
-            QTextEdit QScrollBar::add-page:vertical,
-            QTextEdit QScrollBar::sub-page:vertical {
-                background: transparent;
-            }
-            /* 悬停时稍微变宽，模拟“滑动才出现” */
-            QTextEdit:hover QScrollBar:vertical {
-                width: 8px;
-            }
-            QTextEdit:hover QScrollBar:horizontal {
-                height: 8px;
-            }
-        ''')
-        lay.addWidget(editor)
+        # lay = QVBoxLayout(container)
+        # editor = QTextEdit(container)
+        # editor.setPlainText(codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read())
+        # editor.setStyleSheet('''
+        #     QTextEdit{
+        #         border: 1px solid grey;  
+        #         border-radius:4px;
+        #         padding: 1px 5px 1px 3px; 
+        #         background-clip: border;
+        #         background-color: #F3F2EE;
+        #         color: #000000;
+        #         font: 14pt Times New Roman;
+        #     }
+        #     QTextEdit QScrollBar:vertical {
+        #         width: 6px;
+        #         background: transparent;
+        #         margin: 2px 1px 2px 1px;
+        #     }
+        #     QTextEdit QScrollBar::handle:vertical {
+        #         background: rgba(0,0,0,0.18);
+        #         border-radius: 3px;
+        #         min-height: 30px;
+        #     }
+        #     QTextEdit QScrollBar::handle:vertical:hover,
+        #     QTextEdit QScrollBar::handle:vertical:pressed {
+        #         background: rgba(0,0,0,0.35);
+        #         border-radius: 3px;
+        #     }
+        #     QTextEdit QScrollBar::add-line:vertical,
+        #     QTextEdit QScrollBar::sub-line:vertical {
+        #         height: 0;
+        #         border: none;
+        #         background: transparent;
+        #     }
+        #     QTextEdit QScrollBar::add-page:vertical,
+        #     QTextEdit QScrollBar::sub-page:vertical {
+        #         background: transparent;
+        #     }
+        #     /* 悬停时稍微变宽，模拟“滑动才出现” */
+        #     QTextEdit:hover QScrollBar:vertical {
+        #         width: 8px;
+        #     }
+        #     QTextEdit:hover QScrollBar:horizontal {
+        #         height: 8px;
+        #     }
+        # ''')
+        # lay.addWidget(editor)
 
-        btn_box = QHBoxLayout()
-        btn_save = QPushButton('Save', container)
-        btn_cancel = QPushButton('Cancel', container)
-        btn_box.addWidget(btn_save)
-        btn_box.addWidget(btn_cancel)
-        lay.addLayout(btn_box)
+        # btn_box = QHBoxLayout()
+        # btn_save = QPushButton('Save', container)
+        # btn_cancel = QPushButton('Cancel', container)
+        # btn_box.addWidget(btn_save)
+        # btn_box.addWidget(btn_cancel)
+        # lay.addLayout(btn_box)
 
-        outer = QVBoxLayout(dlg)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(container)
-        dlg.setLayout(outer)
+        # outer = QVBoxLayout(dlg)
+        # outer.setContentsMargins(0, 0, 0, 0)
+        # outer.addWidget(container)
+        # dlg.setLayout(outer)
 
-        def save_refs():
-            with open(BasePath + 'path_ref.txt', 'w', encoding='utf-8') as fp:
-                fp.write(editor.toPlainText())
-            if self.leii1.text() != '':
-                path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
-                if path1 != '':
-                    tarname1 = str(self.leii1.text()) + ".md"
-                    fulldir1 = os.path.join(path1, tarname1)
-                    body_text = self._strip_inspiration_body(self.textii2.toPlainText()) if self.insp_show_full else self.textii2.toPlainText()
-                    with open(fulldir1, 'w', encoding='utf-8') as f1:
-                        f1.write(self._compose_inspiration_file(body_text))
-            dlg.accept()
+        # def save_refs():
+        #     with open(BasePath + 'path_ref.txt', 'w', encoding='utf-8') as fp:
+        #         fp.write(editor.toPlainText())
+        #     if self.leii1.text() != '':
+        #         path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+        #         if path1 != '':
+        #             tarname1 = str(self.leii1.text()) + ".md"
+        #             fulldir1 = os.path.join(path1, tarname1)
+        #             body_text = self._strip_inspiration_body(self.textii2.toPlainText()) if self.insp_show_full else self.textii2.toPlainText()
+        #             with open(fulldir1, 'w', encoding='utf-8') as f1:
+        #                 f1.write(self._compose_inspiration_file(body_text))
+        #     dlg.accept()
 
-        btn_save.clicked.connect(save_refs)
-        btn_cancel.clicked.connect(dlg.reject)
-        dlg.exec()
+        # btn_save.clicked.connect(save_refs)
+        # btn_cancel.clicked.connect(dlg.reject)
+        # dlg.exec()
 
     def sub1(self):
         self.text = QTextEdit(self)
@@ -5412,6 +5962,24 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     pretc7 = pretc7.replace('\n', '')
                     self.le4_1.setText(pretc7)
 
+                    pattern7_1 = re.compile(r'DOI: (.*?)\n')
+                    result7_1 = pattern7_1.findall(contend)
+                    result7_1 = ''.join(result7_1)
+                    pretc7_1 = result7_1.replace('DOI: ', '')
+                    pretc7_1 = pretc7_1.replace('\n', '')
+                    pretc7_1 = pretc7_1.replace('[', '')
+                    pretc7_1 = pretc7_1.replace(']', '')
+                    self.le_doi.setText(pretc7_1)
+
+                    pattern7_2 = re.compile(r'ISBN: (.*?)\n')
+                    result7_2 = pattern7_2.findall(contend)
+                    result7_2 = ''.join(result7_2)
+                    pretc7_2 = result7_2.replace('ISBN: ', '')
+                    pretc7_2 = pretc7_2.replace('\n', '')
+                    pretc7_2 = pretc7_2.replace('[', '')
+                    pretc7_2 = pretc7_2.replace(']', '')
+                    self.le_isbn.setText(pretc7_2)
+
                     pattern8 = re.compile(r'Tags: (.*?)\n')
                     result8 = pattern8.findall(contend)
                     result8 = ''.join(result8)
@@ -5487,6 +6055,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     self.read_t3.setVisible(False)
                     self.read_t8.setVisible(False)
                     self.read_t4.setVisible(False)
+                    self.read_t4_doi.setVisible(False)
+                    self.read_t4_isbn.setVisible(False)
                     self.read_t5.setVisible(False)
                     self.lbltool06.setVisible(False)
                     self.tool8.setVisible(False)
@@ -5539,6 +6109,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 self.le3_1.setText(self.cleaninput(str(self.le3_1.text())))
                 self.le4.setText(self.cleaninput(str(self.le4.text())))
                 self.le4_1.setText(self.cleaninput(str(self.le4_1.text())))
+                self.le_doi.setText(str(self.le_doi.text()).strip())
+                self.le_isbn.setText(str(self.le_isbn.text()).strip())
                 self.le5.setText(self.cleaninput(str(self.le5.text())))
                 self.le8.setText(self.cleaninput(str(self.le8.text())))
                 self.le9.setText(self.cleaninput(str(self.le9.text())))
@@ -5580,9 +6152,17 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 if self.le4_1.text() != '':
                     part6_5 = '\n- ' + 'Vol / Mon: ' + str(self.le4_1.text())
 
+                part6_6 = ''
+                if self.le_doi.text() != '':
+                    part6_6 = '\n- ' + 'DOI: ' + str(self.le_doi.text())
+
+                part6_7 = ''
+                if self.le_isbn.text() != '':
+                    part6_7 = '\n- ' + 'ISBN: ' + str(self.le_isbn.text())
+
                 part7 = ''
                 if self.le5.text() != '':
-                    exptag = str(self.le5.text())
+                    exptag = str(self.le5.text()).replace('+', '、')
                     listtag = exptag.split('、')
                     i = 0
                     while i >= 0 and i <= len(listtag) - 1:
@@ -5611,32 +6191,32 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                                 part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(self.le1.text()) + '》，载《' + \
                                     str(self.le3.text()) + '》，' + str(self.le4.text()) + ' 年第 ' + \
                                     str(self.le4_1.text()) + ' 期，第 ' + str(self.le10.text()) + ' 页。'
-                            if self.le3.text() == '' and self.le8.text() != '':
-                                part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + \
+                        if self.le3.text() == '' and self.le8.text() != '':
+                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + \
                                           str(self.le8.text()) + '》，' + str(self.le3_1.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
                                           str(self.le4_1.text()) + ' 月版，第 ' + str(self.le10.text()) + ' 页。'
-                        if '%' in self.le2.text():
-                            zove = str(self.le2.text()).split('、')
-                            for i in range(len(zove)):
-                                if '%' in zove[i]:
-                                    zove[i] = zove[i].replace('%', '译')
-                                    i = i + 1
-                                    continue
-                                if '%' not in zove[i]:
-                                    zove[i] = zove[i] + '著'
-                                    zove[i] = ''.join(zove[i])
-                                    i = i + 1
-                                    continue
-                            zoveend = '，'.join(zove)
-                            zoveend = zoveend.replace('译，', '、')
-                            if self.le3.text() != '':
-                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，载《' + \
-                                    str(self.le3.text()) + '》，' + str(self.le4.text()) + ' 年第 ' + \
-                                    str(self.le4_1.text()) + ' 期，第 ' + str(self.le10.text()) + ' 页。'
-                            if self.le3.text() == '' and self.le8.text() != '':
-                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + \
-                                          str(self.le8.text()) + '》，' + str(self.le3_1.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
-                                          str(self.le4_1.text()) + ' 月版，第 ' + str(self.le10.text()) + ' 页。'
+                    if '%' in self.le2.text():
+                        zove = str(self.le2.text()).replace('+', '、').split('、')
+                        for i in range(len(zove)):
+                            if '%' in zove[i]:
+                                zove[i] = zove[i].replace('%', '译')
+                                i = i + 1
+                                continue
+                            if '%' not in zove[i]:
+                                zove[i] = zove[i] + '著'
+                                zove[i] = ''.join(zove[i])
+                                i = i + 1
+                                continue
+                        zoveend = '，'.join(zove)
+                        zoveend = zoveend.replace('译，', '、')
+                        if self.le3.text() != '':
+                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，载《' + \
+                                str(self.le3.text()) + '》，' + str(self.le4.text()) + ' 年第 ' + \
+                                str(self.le4_1.text()) + ' 期，第 ' + str(self.le10.text()) + ' 页。'
+                        if self.le3.text() == '' and self.le8.text() != '':
+                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + \
+                                      str(self.le8.text()) + '》，' + str(self.le3_1.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
+                                      str(self.le4_1.text()) + ' 月版，第 ' + str(self.le10.text()) + ' 页。'
                     if self.web_t3.isVisible():
                         ISOTIMEFORMAT = '%Y 年 %m 月 %d 日'
                         theTime = datetime.datetime.now().strftime(ISOTIMEFORMAT)
@@ -5644,55 +6224,187 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                             if self.leweb3.text() != '':
                                 part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(
                                 self.le1.text()) + '》，' + str(self.leweb3.text()) + '，访问时间：' + theTime + ' 。'
-                            if self.leweb3.text() == '':
-                                part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(
-                                    self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
+                        if self.leweb3.text() == '':
+                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(
+                                self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
                                           str(self.le4_1.text()) + ' 月。'
-                        if '%' in self.le2.text():
-                            zove = str(self.le2.text()).split('、')
-                            for i in range(len(zove)):
-                                if '%' in zove[i]:
-                                    zove[i] = zove[i].replace('%', '译')
-                                    i = i + 1
-                                    continue
-                                if '%' not in zove[i]:
-                                    zove[i] = zove[i] + '著'
-                                    zove[i] = ''.join(zove[i])
-                                    i = i + 1
-                                    continue
-                            zoveend = '，'.join(zove)
-                            zoveend = zoveend.replace('译，', '、')
-                            if self.leweb3.text() != '':
-                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，' + \
-                                      str(self.leweb3.text()) + '，访问时间：' + theTime + ' 。'
-                            if self.leweb3.text() == '':
-                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(
-                                    self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
+                    if '%' in self.le2.text():
+                        zove = str(self.le2.text()).replace('+', '、').split('、')
+                        for i in range(len(zove)):
+                            if '%' in zove[i]:
+                                zove[i] = zove[i].replace('%', '译')
+                                i = i + 1
+                                continue
+                            if '%' not in zove[i]:
+                                zove[i] = zove[i] + '著'
+                                zove[i] = ''.join(zove[i])
+                                i = i + 1
+                                continue
+                        zoveend = '，'.join(zove)
+                        zoveend = zoveend.replace('译，', '、')
+                        if self.leweb3.text() != '':
+                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，' + \
+                                  str(self.leweb3.text()) + '，访问时间：' + theTime + ' 。'
+                        if self.leweb3.text() == '':
+                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(
+                                self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
                                           str(self.le4_1.text()) + ' 月。'
                 if is_contain_english(str(self.le1.text())) and not is_contain_chinese(str(self.le1.text())):
                     if not self.web_t3.isVisible():
                         if self.le3.text() != '':
-                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('、', ', ') + ', “' + str(self.le1.text()) + ',” *' + \
+                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('+', '、').replace('、', ', ') + ', “' + str(self.le1.text()) + ',” *' + \
                                 str(self.le3.text()) + '*, ' + str(self.le4_1.text()) + ', ' + str(self.le4.text()) + ', pp.' + \
                                 str(self.le10.text()) + '.'
                         if self.le3.text() == '' and self.le8.text() != '':
-                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('、', ', ') + ', ' + \
+                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('+', '、').replace('、', ', ') + ', ' + \
                                       str(self.le8.text()) + ', ' + str(self.le3_1.text()) + ', ' + str(self.le4.text()) + ', pp. ' + \
                                       str(self.le10.text()) + '.'
                     if self.web_t3.isVisible():
                         ISOTIMEFORMAT = '%B %d, %Y'
                         theTime = datetime.datetime.now().strftime(ISOTIMEFORMAT)
                         if self.leweb3.text() != '':
-                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('、', ', ') + ', “' + str(self.le1.text()) + ',” retrieved ' + \
+                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('+', '、').replace('、', ', ') + ', “' + str(self.le1.text()) + ',” retrieved ' + \
                             theTime + ', from ' + str(self.leweb3.text())
                         if self.leweb3.text() == '':
-                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('、', ', ') + ', “' + str(self.le1.text()) + ',” paper delivered to ' + \
+                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()).replace('+', '、').replace('、', ', ') + ', “' + str(self.le1.text()) + ',” paper delivered to ' + \
                                 str(self.leweb8.text()) + ', sponsored by ' + str(self.leweb9.text()) + ', ' + str(self.leweb10.text()) + ', ' + str(self.le4_1.text()) + ', ' + str(self.le4.text()) + '.'
+
+                def _safe_num(val):
+                    return str(val).strip() if str(val).strip() != '' else '000'
+
+                def _safe_str(val):
+                    return str(val).strip() if str(val).strip() != '' else 'UNKNOWN'
+
+                def _clean_key(src):
+                    key = re.sub('[^A-Za-z0-9]', '', str(src))
+                    return key if key != '' else 'Unknown'
+
+                def _build_citekey():
+                    authors_raw = _safe_str(self.le2.text()).replace('+', '、').split('、')
+                    first_author = authors_raw[0] if authors_raw else 'Unknown'
+                    author_key = _clean_key(first_author.split(' ')[0])
+                    year_key = _safe_num(self.le4.text())
+                    title_key = _clean_key(self.le1.text())
+                    return f"{author_key}{year_key}{title_key}"
+
+                def _bibtex_article():
+                    vol_val = _safe_str(self.le4_1.text())
+                    num_val = _safe_num('000')
+                    if '(' in vol_val or '（' in vol_val:
+                        import re as _re
+                        m = _re.search(r'[\(（](.*?)[\)）]', vol_val)
+                        if m:
+                            num_val = _safe_num(m.group(1))
+                        vol_val = _re.sub(r'[\(（].*?[\)）]', '', vol_val).strip()
+                    citekey = _build_citekey()
+                    doi_val = _safe_str(self.le_doi.text())
+                    journal = _safe_str(self.le3.text())
+                    volume = _safe_num(vol_val)
+                    number = num_val
+                    pages = _safe_str(self.le10.text())
+                    publisher = _safe_str(self.le3_1.text())
+                    url_val = f"https://doi.org/{doi_val}" if doi_val != 'UNKNOWN' else _safe_str(self.leweb3.text())
+                    return f'''@article{{{citekey},
+  doi = "{doi_val}",
+  title = "{_safe_str(self.le1.text())}",
+  author = "{_safe_str(self.le2.text()).replace('、', ' and ')}",
+  journal = "{journal}",
+  year = {_safe_num(self.le4.text())},
+  volume = {volume},
+  number = {number},
+  pages = "{pages}",
+  publisher = "{publisher}",
+  url = "{url_val}",
+  type = "journal-article",
+}}'''
+
+                def _bibtex_misc():
+                    citekey = _build_citekey()
+                    today = datetime.datetime.now().strftime('%Y-%m-%d')
+                    year_val = _safe_num(self.le4.text())
+                    month_val = _safe_str(self.le4_1.text())
+                    date_val = f"{year_val}-{month_val}" if month_val != 'UNKNOWN' else f"{year_val}-00-00"
+                    howpublished = _safe_str(self.leweb8.text() if self.leweb8.text() != '' else self.le3.text())
+                    url_val = _safe_str(self.leweb3.text())
+                    return f'''@misc{{{citekey},
+  author    = {{{_safe_str(self.le2.text()).replace('、', ' and ')}}},
+  title     = {{{_safe_str(self.le1.text())}}},
+  year      = {{{year_val}}},
+  date      = {{{date_val}}},
+  howpublished = {{{howpublished}}},
+  url       = {{{url_val}}},
+  urldate   = {{{today}}},
+  language  = {{{_safe_str('en')}}}
+}}'''
+
+                def _bibtex_inproceedings():
+                    vol_val = _safe_str(self.le4_1.text())
+                    num_val = _safe_num('000')
+                    if '(' in vol_val or '（' in vol_val:
+                        import re as _re
+                        m = _re.search(r'[\(（](.*?)[\)）]', vol_val)
+                        if m:
+                            num_val = _safe_num(m.group(1))
+                        vol_val = _re.sub(r'[\(（].*?[\)）]', '', vol_val).strip()
+                    citekey = _build_citekey()
+                    booktitle = _safe_str(self.leweb8.text())
+                    editor = _safe_str(self.leweb9.text())
+                    volume = _safe_num(vol_val)
+                    pages = _safe_str(self.le10.text())
+                    publisher = _safe_str(self.le3_1.text())
+                    address = _safe_str(self.leweb10.text())
+                    doi_val = _safe_str(self.le_doi.text())
+                    url_val = f"https://doi.org/{doi_val}" if doi_val != 'UNKNOWN' else _safe_str(self.leweb3.text())
+                    return f'''@inproceedings{{{citekey},
+  author    = {{{_safe_str(self.le2.text()).replace('、', ' and ')}}},
+  title     = {{{_safe_str(self.le1.text())}}},
+  booktitle = {{{booktitle}}},
+  editor    = {{{editor}}},
+  volume    = {{{volume}}},
+  series    = {{{_safe_str('UNKNOWN')}}},
+  pages     = {{{pages.replace('-', '--')}}},
+  publisher = {{{publisher}}},
+  address   = {{{address}}},
+  year      = {{{_safe_num(self.le4.text())}}},
+  month     = {{{_safe_str('UNKNOWN').lower()}}},
+  doi       = {{{doi_val}}},
+  url       = {{{url_val}}},
+  language  = {{{_safe_str('en')}}}
+}}'''
+
+                def _bibtex_book():
+                    citekey = _build_citekey()
+                    title_val = _safe_str(self.le8.text() if self.le8.text() != '' else self.le1.text())
+                    pages_val = _safe_str(self.le10.text())
+                    url_val = _safe_str(self.leweb3.text())
+                    return f'''@book{{{citekey},
+  doi = "{_safe_str(self.le_doi.text())}",
+  title = "{title_val}",
+  author = "{_safe_str(self.le2.text()).replace('、', ' and ')}",
+  publisher = "{_safe_str(self.le3_1.text())}",
+  year = {_safe_num(self.le4.text())},
+  isbn = "{_safe_str(self.le_isbn.text())}",
+  url = "{url_val}",
+  pages = "{pages_val}",
+}}'''
+
+                def _pick_bibtex():
+                    if self.leweb3.text() != '':
+                        return _bibtex_misc()
+                    if self.leweb3.text() == '' and self.leweb8.text() != '':
+                        return _bibtex_inproceedings()
+                    if self.le3.text() != '' and self.le3_1.text() == '' and self.leweb3.text() == '' and self.leweb8.text() == '':
+                        return _bibtex_article()
+                    if self.le3_1.text() != '' and self.le3.text() == '':
+                        return _bibtex_book()
+                    return _bibtex_article()
+
+                part7_6 = '\n- BibTeX:\n```bibtex\n' + _pick_bibtex() + '\n```'
 
                 part8 = '\n\n---' + '\n\n# Notes'
 
                 with open(fulldir1, 'a', encoding='utf-8') as f1:
-                    f1.write(part1+part2+part3+part4+part5+part5_1+part5_5+part6+part6_5+part7+part7_5+part8)
+                    f1.write(part1+part2+part3+part4+part5+part5_1+part5_5+part6+part6_5+part6_6+part6_7+part7+part7_5+part7_6+part8)
                 with open(BasePath + 'path_ttl.txt', 'w', encoding='utf-8') as f0:
                     f0.write(self.le1.text())
 
@@ -5770,7 +6482,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 # self.text.setStyleSheet('color:red')
             else:
                 if self.le2.text() != '':
-                    expname2 = str(self.le2.text())
+                    expname2 = str(self.le2.text()).replace('+', '、')
                     listexpn2 = expname2.split('、')
                     i = 0
                     while i >= 0 and i <= len(listexpn2) - 1:
@@ -5843,7 +6555,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 self.text.setPlainText('Some directory is empty. Please go to preferences and check!')
             else:
                 if self.le7.text() != '':
-                    expname3 = str(self.le7.text())
+                    expname3 = str(self.le7.text()).replace('+', '、')
                     listexpn3 = expname3.split('、')
                     le7i = 0
                     while le7i >= 0 and le7i <= len(listexpn3) - 1:
@@ -6022,6 +6734,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             self.read_t3.setVisible(False)
             self.read_t8.setVisible(False)
             self.read_t4.setVisible(False)
+            self.read_t4_doi.setVisible(False)
+            self.read_t4_isbn.setVisible(False)
             self.read_t5.setVisible(False)
             self.lbltool06.setVisible(False)
             self.tool8.setVisible(False)
@@ -6067,6 +6781,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.le3_1.clear()
         self.le4.clear()
         self.le4_1.clear()
+        self.le_doi.clear()
+        self.le_isbn.clear()
         self.le5.clear()
         self.le8.clear()
         self.le9.clear()
@@ -6230,6 +6946,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.read_t3.setVisible(True)
         self.read_t8.setVisible(True)
         self.read_t4.setVisible(True)
+        self.read_t4_doi.setVisible(True)
+        self.read_t4_isbn.setVisible(True)
         self.read_t5.setVisible(True)
         self.lbltool06.setVisible(True)
         self.tool8.setVisible(True)
@@ -8502,6 +9220,16 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         part6 = '\n- Year: #AD' + str(ris_each[r]).replace('PY  - ', '').replace('/', '')
                         with open(fulldirb, 'a', encoding='utf-8') as f2:
                             f2.write(part6 + '\n')
+                for r_doi in range(len(ris_each)):
+                    if 'DO  - ' in ris_each[r_doi]:
+                        part6_6 = '\n- DOI: ' + str(ris_each[r_doi]).replace('DO  - ', '')
+                        with open(fulldirb, 'a', encoding='utf-8') as f2:
+                            f2.write(part6_6 + '\n')
+                for r_isbn in range(len(ris_each)):
+                    if 'SN  - ' in ris_each[r_isbn]:
+                        part6_7 = '\n- ISBN: ' + str(ris_each[r_isbn]).replace('SN  - ', '')
+                        with open(fulldirb, 'a', encoding='utf-8') as f2:
+                            f2.write(part6_7 + '\n')
                 for s in range(len(ris_each)):
                     if 'VL  - ' in ris_each[s]:
                         part8 = '\n- Vol / Mon: ' + str(ris_each[s]).replace('VL  - ', '')
@@ -8573,7 +9301,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         with open(fulldirb, 'a', encoding='utf-8') as f2:
                             f2.write(part12)
                     if self.is_contain_english(pretc):
-                        part13 = '\n- ' + 'Citation: ' + str(pretc2).replace('、', ', ') + ', “' + str(pretc) + ',” *' + \
+                        part13 = '\n- ' + 'Citation: ' + str(pretc2).replace('+', '、').replace('、', ', ') + ', “' + str(pretc) + ',” *' + \
                             str(pretc4) + '*, ' + str(pretc7) + ', ' + str(pretc6) + ', pp.' + \
                             str(pretc11) + '.'
                         with open(fulldirb, 'a', encoding='utf-8') as f2:
@@ -8861,6 +9589,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.read_t3.setVisible(a)
         self.read_t8.setVisible(a)
         self.read_t4.setVisible(a)
+        self.read_t4_doi.setVisible(a)
+        self.read_t4_isbn.setVisible(a)
         self.read_t5.setVisible(a)
         self.lbltool06.setVisible(a)
         self.tool8.setVisible(a)
@@ -8871,6 +9601,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             self.read_t8.setVisible(a2)
 
     def openascr(self):
+        self.btn_ia1.setEnabled(False)
+        w4.csl_open_btn.setEnabled(False)
+        w4.csl_add_btn.setEnabled(False)
+        w4.csl_delete_btn.setVisible(False)
         self.widgettem.setCurrentIndex(0)
         pathscr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
         if pathscr == '':
@@ -8880,6 +9614,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             file_name, ok = QFileDialog.getOpenFileName(self, "Open File", pathscr, "Markdown Files (*.md)")
             if file_name != '':
                 contend = codecs.open(file_name, 'r', encoding='utf-8').read()
+                def _strip_tail(name):
+                    import re as _re
+                    return _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', name.strip())
+
                 if pathscr in file_name:
                     if '.md' in file_name:
                         patterna = re.compile(r'\[.*<e>\n')
@@ -8899,7 +9637,114 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         pretc = pretc.replace('-->', '')
                         pretc = pretc.replace('[', '')
                         pretc = pretc.replace(']', '')
-                        self.leii1.setText(pretc)
+                        title_full = pretc.strip()
+                        file_base = os.path.splitext(os.path.basename(file_name))[0]
+                        title_base = _strip_tail(title_full)
+                        file_base_clean = _strip_tail(file_base)
+                        # use filename (cleaned) for leii1; cache full header (if any)
+                        chosen_base = file_base_clean if file_base_clean != '' else (title_base if title_base != '' else file_base)
+                        cache_key = title_full if title_full != '' else file_base
+                        self._cached_title_key = cache_key
+                        self.leii1.setText(chosen_base)
+                        # verify citation folder exists
+                        cit_dir = os.path.join(pathscr, 'StrawberryCitations', cache_key)
+                        if not os.path.exists(cit_dir):
+                            QMessageBox.warning(self, 'Citation formats unavailable',
+                                                'Current file lacks a matching StrawberryCitations folder. '
+                                                'Automatic citation generation is unavailable. Please recreate the file.')
+                            self._set_citation_controls_enabled(False)
+                        else:
+                            self._set_citation_controls_enabled(True)
+                            # Generate missing formats if new CSLs were added
+                            try:
+                                home_dir = str(Path.home())
+                                base_dir = os.path.join(home_dir, "StrawberryAppPath")
+                                csl_dir = os.path.join(base_dir, "CitationFormat")
+                                formats_file = os.path.join(csl_dir, "formats.txt")
+                                fmt_list = []
+                                if os.path.exists(formats_file):
+                                    fmt_list = [x.strip() for x in codecs.open(formats_file, 'r', encoding='utf-8').read().split('\n') if x.strip() != '' and x.strip().lower() != 'quickcite']
+                                existing = set()
+                                for fname in os.listdir(cit_dir):
+                                    if fname.startswith(f"{cache_key}-") and fname.endswith('.txt'):
+                                        name_part = fname[len(cache_key)+1:-4]  # strip title and .txt
+                                        if name_part.endswith('-in'):
+                                            name_part = name_part[:-3]
+                                        existing.add(name_part.lower())
+                                missing_formats = []
+                                for fmt in fmt_list:
+                                    basefmt = fmt[:-4] if fmt.lower().endswith('.csl') else fmt
+                                    if basefmt.lower() not in existing:
+                                        missing_formats.append(basefmt)
+                                if missing_formats:
+                                    bib_file = os.path.join(cit_dir, f"{cache_key}.bib")
+                                    if os.path.exists(bib_file):
+                                        try:
+                                            import bibtexparser
+                                            from bibtexparser.bparser import BibTexParser
+                                            from bibtexparser.customization import convert_to_unicode
+                                            from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
+                                            from citeproc import formatter
+                                            from citeproc.source.json import CiteProcJSON
+                                        except Exception:
+                                            missing_formats = []
+                                        if missing_formats:
+                                            parser = BibTexParser(common_strings=True)
+                                            parser.customization = convert_to_unicode
+                                            try:
+                                                with open(bib_file, 'r', encoding='utf-8') as bf:
+                                                    bib_db = bibtexparser.load(bf, parser=parser)
+                                                    entries = bib_db.entries
+                                            except Exception:
+                                                entries = []
+                                            def _append_line(path, text):
+                                                if text is None or text.strip() == '':
+                                                    return
+                                                os.makedirs(os.path.dirname(path), exist_ok=True)
+                                                needs_newline = os.path.exists(path) and os.path.getsize(path) > 0
+                                                with open(path, 'a', encoding='utf-8') as f0:
+                                                    if needs_newline:
+                                                        f0.write('\n')
+                                                    f0.write(text.strip())
+                                            for fmt in missing_formats:
+                                                style_path = os.path.join(csl_dir, fmt if fmt.endswith('.csl') else f"{fmt}.csl")
+                                                if not os.path.exists(style_path):
+                                                    continue
+                                                for entry in entries:
+                                                    try:
+                                                        csl_item = self._convert_entry_to_csl(entry)
+                                                        style = CitationStylesStyle(style_path, validate=False)
+                                                        bib_source = CiteProcJSON([csl_item])
+                                                        bibliography = CitationStylesBibliography(style, bib_source, formatter.plain)
+                                                        citation = Citation([CitationItem(csl_item['id'])])
+                                                        bibliography.register(citation)
+                                                        inline_cite = str(bibliography.cite(citation, lambda x: None))
+                                                        biblio_entries = [str(item) for item in bibliography.bibliography()]
+                                                        biblio_text = '\n'.join(biblio_entries).strip()
+                                                    except Exception:
+                                                        continue
+                                                    inline_file = os.path.join(cit_dir, f"{cache_key}-{fmt}-in.txt")
+                                                    biblio_file = os.path.join(cit_dir, f"{cache_key}-{fmt}.txt")
+                                                    _append_line(inline_file, inline_cite)
+                                                    _append_line(biblio_file, biblio_text)
+                            except Exception:
+                                pass
+                            # remove obsolete formats not in formats.txt (except quickcite)
+                            try:
+                                allowed = set([ (f[:-4] if f.lower().endswith('.csl') else f).lower() for f in fmt_list ])
+                                allowed.add('quickcite')
+                                for fname in list(os.listdir(cit_dir)):
+                                    if not fname.startswith(f"{cache_key}-") or not fname.endswith('.txt'):
+                                        continue
+                                    name_part = fname[len(cache_key)+1:-4]
+                                    fmt_key = name_part.lower().replace('-in', '')
+                                    if fmt_key not in allowed:
+                                        try:
+                                            os.remove(os.path.join(cit_dir, fname))
+                                        except Exception:
+                                            continue
+                            except Exception:
+                                pass
 
                         if self.leii1.text() != '':
                             self._show_inspiration_content(contend)
@@ -8978,8 +9823,32 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         self.choosepart.clear()
                         self.choosepart.addItems(['Append at the end (default)', 'Append at the current cursor'])
                         pathscr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
-                        tarname1 = str(self.leii1.text()) + ".md"
-                        fulldir1 = os.path.join(pathscr, tarname1)
+                        def _candidate_names(raw):
+                            cands = [raw]
+                            try:
+                                import re as _re
+                                base1 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', raw).rstrip()
+                                if base1 and base1 not in cands:
+                                    cands.append(base1)
+                                base2 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', base1).rstrip()
+                                if base2 and base2 not in cands:
+                                    cands.append(base2)
+                            except Exception:
+                                pass
+                            return cands
+
+                        fulldir1 = ''
+                        for nm in _candidate_names(str(self.leii1.text())):
+                            tarname1 = nm + ".md"
+                            candidate = os.path.join(pathscr, tarname1)
+                            if os.path.exists(candidate):
+                                fulldir1 = candidate
+                                break
+                        if fulldir1 == '' and pathscr in file_name:
+                            fulldir1 = file_name
+                        if fulldir1 == '':
+                            tarname1 = str(self.leii1.text()) + ".md"
+                            fulldir1 = os.path.join(pathscr, tarname1)
                         maintxt = codecs.open(fulldir1, 'r', encoding='utf-8').read()
                         pattern = re.compile(r'## (.*?)\n')
                         result = pattern.findall(maintxt)
@@ -9007,11 +9876,16 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             else:
                 tarname4 = str(self.leii1.text()) + ".md"
                 fulldir4 = os.path.join(path3, tarname4)
+                if os.path.exists(fulldir4):
+                    QMessageBox.warning(self, 'Duplicate title', 'A file with this title already exists. Please choose a new name.')
+                    return
+                ts = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
                 parta = '<document-start>'
-                partb = '\n<!--Title: ' + str(self.leii1.text()) + '-->'
+                partb = '\n<!--Title: ' + str(self.leii1.text()) + ' ' + ts + '-->'
                 partc = '\n\n# ' + str(self.leii1.text())
                 with open(fulldir4, 'a', encoding='utf-8') as f3:
                     f3.write(parta + partb + partc)
+                self._init_citation_files(str(self.leii1.text()) + ' ' + ts, path3)
                 self.btn_a.setStyleSheet('''
                                     border: 1px outset grey;
                                     background-color: #0085FF;
@@ -9050,10 +9924,12 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             if self.leii1.text() != '':
                 tarname4 = str(self.leii1.text()) + ".md"
             if self.leii1.text() == '' and self.textii1.toPlainText() != '':
-                ISOTIMEFORMAT = '%Y%m%d %H-%M-%S-%f record'
+                # default new doc name with "record"
+                ISOTIMEFORMAT = '%Y%m%d %H-%M-%S-%f'
                 theTime = datetime.datetime.now().strftime(ISOTIMEFORMAT)
-                tarname4 = str(theTime) + ".md"
-                self.leii1.setText(str(theTime))
+                base_name = f"{theTime} record"
+                tarname4 = base_name + ".md"
+                self.leii1.setText(base_name)
                 self.leii1.setEnabled(False)
                 self.btn_a.setStyleSheet('''
                     border: 1px outset grey;
@@ -9063,9 +9939,47 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     color: #FFFFFF''')
                 self.btn_a.setText('Created')
             if self.leii1.text() != '':
-                fulldir4 = os.path.join(path3, tarname4)
+                def _candidate_names(raw):
+                    cands = [raw]
+                    try:
+                        import re as _re
+                        base1 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', raw).rstrip()
+                        if base1 and base1 not in cands:
+                            cands.append(base1)
+                        base2 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', base1).rstrip()
+                        if base2 and base2 not in cands:
+                            cands.append(base2)
+                    except Exception:
+                        pass
+                    return cands
+
+                fulldir4 = ''
+                tarname4_use = ''
+                for nm in _candidate_names(str(self.leii1.text())):
+                    cand = os.path.join(path3, nm + ".md")
+                    if os.path.exists(cand):
+                        fulldir4 = cand
+                        tarname4_use = nm + ".md"
+                        # sync title to stripped version if matched stripped one
+                        self.leii1.setText(nm)
+                        break
+                if fulldir4 == '':
+                    tarname4_use = tarname4
+                    fulldir4 = os.path.join(path3, tarname4_use)
+                    if os.path.exists(fulldir4):
+                        QMessageBox.warning(self, 'Duplicate title', 'A file with this title already exists. Please choose a new name.')
+                        return
+                is_new_file = not os.path.exists(fulldir4)
                 with open(fulldir4, 'a', encoding='utf-8') as f0:
                     f0.write('')
+                if is_new_file:
+                    try:
+                        header_preview = self._build_inspiration_header()
+                        m_title = re.search(r'<!--Title: (.*?)-->', header_preview)
+                        title_key = m_title.group(1).strip() if m_title else self.leii1.text()
+                    except Exception:
+                        title_key = self.leii1.text()
+                    self._init_citation_files(title_key, path3)
                 contm = codecs.open(fulldir4, 'r', encoding='utf-8').read()
                 body_now = self._strip_inspiration_body(contm).rstrip('\n')
                 if body_now.strip() == '':
@@ -9238,6 +10152,11 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         if path1 != '' and self.leii1.text() != '':
             file_name, ok = QFileDialog.getOpenFileName(self, "Open File", path1, "Markdown Files (*.md)")
             if file_name != '' and (path1 in file_name or fulldira in file_name):
+                try:
+                    title_key = self._get_citation_title_key()
+                    self._cached_title_key = title_key
+                except Exception:
+                    title_key = self.leii1.text()
                 oldref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
                 pretc7 = '0'
                 if oldref != '':
@@ -9297,10 +10216,57 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 composed_text = self._compose_inspiration_file(body_text)
                 with open(fulldir1, 'w', encoding='utf-8') as f0:
                     f0.write(composed_text)
-                with open(BasePath + 'filename.txt', 'w', encoding='utf-8') as f0:
-                    f0.write(file_name)
+            with open(BasePath + 'filename.txt', 'w', encoding='utf-8') as f0:
+                f0.write(file_name)
 
-            QTimer.singleShot(100, self.addcit2)
+        QTimer.singleShot(100, self.addcit2)
+
+    def _populate_article_fields_from_content(self, contend):
+        def _set_if_empty(widget, value):
+            if hasattr(widget, 'setText'):
+                if str(widget.text()).strip() == '':
+                    widget.setText(value)
+
+        pattern_map = {
+            'title': (re.compile(r'Title: (.*?)\n'), self.le1),
+            'authors': (re.compile(r'Authors: (.*?)\n'), self.le2),
+            'pub': (re.compile(r'Publication: (.*?)\n'), self.le3),
+            'press': (re.compile(r'Press: (.*?)\n'), self.le3_1),
+            'year': (re.compile(r'Year: (.*?)\n'), self.le4),
+            'vol': (re.compile(r'Vol / Mon: (.*?)\n'), self.le4_1),
+            'tags': (re.compile(r'Tags: (.*?)\n'), self.le5),
+            'from_book': (re.compile(r'From book: (.*?),'), self.le8),
+            'chapter': (re.compile(r', Chapter (.*?),'), self.le9),
+            'pages': (re.compile(r'Page range: (.*?)\n'), self.le10),
+            'doi': (re.compile(r'DOI: (.*?)\n'), self.le_doi),
+            'isbn': (re.compile(r'ISBN: (.*?)\n'), self.le_isbn),
+        }
+        for key, (pat, widget) in pattern_map.items():
+            res = pat.findall(contend)
+            value = ''.join(res).replace('[', '').replace(']', '').replace('#AD', '').strip()
+            if key == 'tags':
+                value = value.replace('#', '').replace(' ', '、')
+            if key == 'chapter':
+                value = value.replace(', ', '')
+            if key == 'pages':
+                value = value.replace(', Page range: ', '')
+            _set_if_empty(widget, value)
+
+        # handle URL-like info in web mode if present
+        if 'URL:' in contend and hasattr(self, 'leweb3'):
+            patt = re.compile(r'URL: (.*?)\n')
+            res = patt.findall(contend)
+            url_val = ''.join(res).strip()
+            _set_if_empty(self.leweb3, url_val)
+
+    def _clear_article_temp_fields(self):
+        fields = ['le1', 'le2', 'le7', 'le3', 'le3_1', 'le4', 'le4_1',
+                  'le5', 'le8', 'le9', 'le10', 'le_doi', 'le_isbn',
+                  'leweb3', 'leweb8', 'leweb9', 'leweb10']
+        for fname in fields:
+            w = getattr(self, fname, None)
+            if hasattr(w, 'clear'):
+                w.clear()
 
     def addcit2(self):
         path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
@@ -9325,62 +10291,222 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         if path1 != '' and self.leii1.text() != '':
             file_name = codecs.open(BasePath + 'filename.txt', 'r', encoding='utf-8').read()
             if file_name != '' and (path1 in file_name or fulldira in file_name):
+                try:
+                    title_key = self._get_citation_title_key()
+                except Exception:
+                    title_key = self.leii1.text()
                 contend = codecs.open(file_name, 'r', encoding='utf-8').read()
-                pattern6 = re.compile(r'Citation: (.*?)\n')
-                result6 = pattern6.findall(contend)
-                result6 = ''.join(result6)
-                pretc6 = result6.replace('Citation: ', '')
-                pretc6 = pretc6.replace('\n', '')
-                pretc6 = pretc6.replace('[[', '')
-                pretc6 = pretc6.replace(']]', '')
-                oldref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
-                pretc7 = '0'
-                if oldref != '':
-                    pattern7 = re.compile(r'\[.\d*\]')
-                    result7 = pattern7.findall(oldref)
-                    i = 0
-                    while i >= 0 and i <= len(result7) - 1:
-                        result7[i] = result7[i].replace('[^', '')
-                        result7[i] = result7[i].replace(']', '')
-                        result7[i] = ''.join(result7[i])
-                        i = i + 1
-                        continue
-                    result7.sort(key=int, reverse=True)
-                    pretc7 = str(result7[0])
-                if oldref == '':
-                    pretc7 = '0'
+                bibtex_block = ''
+                pattern_bib = re.compile(r'```(?:\s*bibtex)?(.*?)```', re.DOTALL | re.IGNORECASE)
+                match_bib = pattern_bib.search(contend)
+                if match_bib:
+                    bibtex_block = match_bib.group(1).strip()
+                if bibtex_block == '':
+                    # populate article fields from metadata to build bibtex on the fly
+                    self._populate_article_fields_from_content(contend)
+                    def _safe_num(val):
+                        return str(val).strip() if str(val).strip() != '' else '000'
+                    def _safe_str(val):
+                        return str(val).strip() if str(val).strip() != '' else 'UNKNOWN'
+                    def _clean_key(src):
+                        key = re.sub('[^A-Za-z0-9]', '', str(src))
+                        return key if key != '' else 'Unknown'
+                    def _build_citekey():
+                        authors_raw = _safe_str(self.le2.text()).replace('+', '、').split('、')
+                        first_author = authors_raw[0] if authors_raw else 'Unknown'
+                        author_key = _clean_key(first_author.split(' ')[0])
+                        year_key = _safe_num(self.le4.text())
+                        title_key = _clean_key(self.le1.text())
+                        return f"{author_key}{year_key}{title_key}"
+                    def _bibtex_article():
+                        vol_val = _safe_str(self.le4_1.text())
+                        num_val = _safe_num('000')
+                        if '(' in vol_val or '（' in vol_val:
+                            import re as _re
+                            m = _re.search(r'[\(（](.*?)[\)）]', vol_val)
+                            if m:
+                                num_val = _safe_num(m.group(1))
+                            vol_val = _re.sub(r'[\(（].*?[\)）]', '', vol_val).strip()
+                        citekey = _build_citekey()
+                        doi_val = _safe_str(self.le_doi.text())
+                        journal = _safe_str(self.le3.text())
+                        volume = _safe_num(vol_val)
+                        number = num_val
+                        pages = _safe_str(self.le10.text())
+                        publisher = _safe_str(self.le3_1.text())
+                        url_val = f"https://doi.org/{doi_val}" if doi_val != 'UNKNOWN' else _safe_str(self.leweb3.text())
+                        return f'''@article{{{citekey},
+  doi = "{doi_val}",
+  title = "{_safe_str(self.le1.text())}",
+  author = "{_safe_str(self.le2.text()).replace('、', ' and ')}",
+  journal = "{journal}",
+  year = {_safe_num(self.le4.text())},
+  volume = {volume},
+  number = {number},
+  pages = "{pages}",
+  publisher = "{publisher}",
+  url = "{url_val}",
+  type = "journal-article",
+}}'''
+                    def _bibtex_misc():
+                        citekey = _build_citekey()
+                        today = datetime.datetime.now().strftime('%Y-%m-%d')
+                        year_val = _safe_num(self.le4.text())
+                        month_val = _safe_str(self.le4_1.text())
+                        date_val = f"{year_val}-{month_val}" if month_val != 'UNKNOWN' else f"{year_val}-00-00"
+                        howpublished = _safe_str(self.leweb8.text() if self.leweb8.text() != '' else self.le3.text())
+                        url_val = _safe_str(self.leweb3.text())
+                        return f'''@misc{{{citekey},
+  author    = {{{_safe_str(self.le2.text()).replace('、', ' and ')}}},
+  title     = {{{_safe_str(self.le1.text())}}},
+  year      = {{{year_val}}},
+  date      = {{{date_val}}},
+  howpublished = {{{howpublished}}},
+  url       = {{{url_val}}},
+  urldate   = {{{today}}},
+  language  = {{{_safe_str('en')}}}
+}}'''
+                    def _bibtex_inproceedings():
+                        vol_val = _safe_str(self.le4_1.text())
+                        num_val = _safe_num('000')
+                        if '(' in vol_val or '（' in vol_val:
+                            import re as _re
+                            m = _re.search(r'[\(（](.*?)[\)）]', vol_val)
+                            if m:
+                                num_val = _safe_num(m.group(1))
+                            vol_val = _re.sub(r'[\(（].*?[\)）]', '', vol_val).strip()
+                        citekey = _build_citekey()
+                        booktitle = _safe_str(self.leweb8.text())
+                        editor = _safe_str(self.leweb9.text())
+                        volume = _safe_num(vol_val)
+                        pages = _safe_str(self.le10.text())
+                        publisher = _safe_str(self.le3_1.text())
+                        address = _safe_str(self.leweb10.text())
+                        doi_val = _safe_str(self.le_doi.text())
+                        url_val = f"https://doi.org/{doi_val}" if doi_val != 'UNKNOWN' else _safe_str(self.leweb3.text())
+                        return f'''@inproceedings{{{citekey},
+  author    = {{{_safe_str(self.le2.text()).replace('、', ' and ')}}},
+  title     = {{{_safe_str(self.le1.text())}}},
+  booktitle = {{{booktitle}}},
+  editor    = {{{editor}}},
+  volume    = {{{volume}}},
+  series    = {{{_safe_str('UNKNOWN')}}},
+  pages     = {{{pages.replace('-', '--')}}},
+  publisher = {{{publisher}}},
+  address   = {{{address}}},
+  year      = {{{_safe_num(self.le4.text())}}},
+  month     = {{{_safe_str('UNKNOWN').lower()}}},
+  doi       = {{{doi_val}}},
+  url       = {{{url_val}}},
+  language  = {{{_safe_str('en')}}}
+}}'''
+                    def _bibtex_book():
+                        citekey = _build_citekey()
+                        title_val = _safe_str(self.le8.text() if self.le8.text() != '' else self.le1.text())
+                        pages_val = _safe_str(self.le10.text())
+                        url_val = _safe_str(self.leweb3.text())
+                        return f'''@book{{{citekey},
+  doi = "{_safe_str(self.le_doi.text())}",
+  title = "{title_val}",
+  author = "{_safe_str(self.le2.text()).replace('、', ' and ')}",
+  publisher = "{_safe_str(self.le3_1.text())}",
+  year = {_safe_num(self.le4.text())},
+  isbn = "{_safe_str(self.le_isbn.text())}",
+  url = "{url_val}",
+  pages = "{pages_val}",
+}}'''
+                    def _pick_bibtex():
+                        if self.leweb3.text() != '':
+                            return _bibtex_misc()
+                        if self.leweb3.text() == '' and self.leweb8.text() != '':
+                            return _bibtex_inproceedings()
+                        if self.le3.text() != '' and self.le3_1.text() == '' and self.leweb3.text() == '' and self.leweb8.text() == '':
+                            return _bibtex_article()
+                        if self.le3_1.text() != '' and self.le3.text() == '':
+                            return _bibtex_book()
+                        return _bibtex_article()
+                    bibtex_block = _pick_bibtex()
+                    # write into article metadata before notes
+                    marker = '\n\n---\n\n# Notes'
+                    if marker in contend:
+                        contend = contend.replace(marker, '\n- BibTeX:\n```bibtex\n' + bibtex_block + '\n```' + marker, 1)
+                    else:
+                        contend = contend + '\n- BibTeX:\n```bibtex\n' + bibtex_block + '\n```\n'
+                    with open(file_name, 'w', encoding='utf-8') as wf:
+                        wf.write(contend)
+                if bibtex_block != '':
+                    path3_cit = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+                    if path3_cit != '' and title_key != '':
+                        cit_dir = os.path.join(path3_cit, 'StrawberryCitations', title_key)
+                        os.makedirs(cit_dir, exist_ok=True)
+                        bib_file = os.path.join(cit_dir, f"{title_key}.bib")
+                        existing_bib = ''
+                        if os.path.exists(bib_file):
+                            existing_bib = codecs.open(bib_file, 'r', encoding='utf-8').read()
+                        with open(bib_file, 'a', encoding='utf-8') as bf:
+                            if existing_bib != '' and not existing_bib.endswith('\n'):
+                                bf.write('\n')
+                            bf.write(bibtex_block)
+                            if not bibtex_block.endswith('\n'):
+                                bf.write('\n')
+                        self._generate_csl_citations(title_key, path3_cit, latest_bib_block=bibtex_block)
 
-                if self.leii2.text() != '':
-                    if pretc6 != '':
-                        partt1 = '\n[^' + str(self.leii2.text()) + ']: ' + pretc6
-                        with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
-                            citpat.write(partt1)
-                    if pretc6 == '':
-                        partt1 = '\n[^' + str(self.leii2.text()) + ']: ' + 'Cannot find citation for ' + file_name
-                        with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
-                            citpat.write(partt1)
-                if self.leii2.text() == '':
-                    # tarnumb = '1'
-                    if pretc7 == '0':
-                        tarnumb = '1'
-                        if pretc6 != '':
-                            partt1 = '[^' + str(tarnumb) + ']: ' + pretc6
-                            with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
-                                citpat.write(partt1)
-                        if pretc6 == '':
-                            partt1 = '[^' + str(tarnumb) + ']: ' + 'Cannot find citation for ' + file_name
-                            with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
-                                citpat.write(partt1)
-                    if pretc7 != '0':
-                        tarnumb = str(int(pretc7) + 1)
-                        if pretc6 != '':
-                            partt1 = '\n[^' + str(tarnumb) + ']: ' + pretc6
-                            with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
-                                citpat.write(partt1)
-                        if pretc6 == '':
-                            partt1 = '\n[^' + str(tarnumb) + ']: ' + 'Cannot find citation for ' + file_name
-                            with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
-                                citpat.write(partt1)
+                # Citation block from original Markdown is no longer used; path_ref is now built from generated formats
+                # pattern6 = re.compile(r'Citation: (.*?)\n')
+                # result6 = pattern6.findall(contend)
+                # result6 = ''.join(result6)
+                # pretc6 = result6.replace('Citation: ', '')
+                # pretc6 = pretc6.replace('\n', '')
+                # pretc6 = pretc6.replace('[[', '')
+                # pretc6 = pretc6.replace(']]', '')
+                # oldref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
+                # pretc7 = '0'
+                # if oldref != '':
+                    # pattern7 = re.compile(r'\[.\d*\]')
+                    # result7 = pattern7.findall(oldref)
+                    # i = 0
+                    # while i >= 0 and i <= len(result7) - 1:
+                    #     result7[i] = result7[i].replace('[^', '')
+                    #     result7[i] = result7[i].replace(']', '')
+                    #     result7[i] = ''.join(result7[i])
+                    #     i = i + 1
+                    #     continue
+                    # result7.sort(key=int, reverse=True)
+                    # pretc7 = str(result7[0])
+                # if oldref == '':
+                #     pretc7 = '0'
+
+                # if self.leii2.text() != '':
+                #     if pretc6 != '':
+                #         partt1 = '\n[^' + str(self.leii2.text()) + ']: ' + pretc6
+                #         with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
+                #             citpat.write(partt1)
+                #     if pretc6 == '':
+                #         partt1 = '\n[^' + str(self.leii2.text()) + ']: ' + 'Cannot find citation for ' + file_name
+                #         with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
+                #             citpat.write(partt1)
+                # if self.leii2.text() == '':
+                #     # tarnumb = '1'
+                #     if pretc7 == '0':
+                #         tarnumb = '1'
+                #         if pretc6 != '':
+                #             partt1 = '[^' + str(tarnumb) + ']: ' + pretc6
+                #             with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
+                #                 citpat.write(partt1)
+                #         if pretc6 == '':
+                #             partt1 = '[^' + str(tarnumb) + ']: ' + 'Cannot find citation for ' + file_name
+                #             with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
+                #                 citpat.write(partt1)
+                #     if pretc7 != '0':
+                #         tarnumb = str(int(pretc7) + 1)
+                #         if pretc6 != '':
+                #             partt1 = '\n[^' + str(tarnumb) + ']: ' + pretc6
+                #             with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
+                #                 citpat.write(partt1)
+                #         if pretc6 == '':
+                #             partt1 = '\n[^' + str(tarnumb) + ']: ' + 'Cannot find citation for ' + file_name
+                #             with open(BasePath + 'path_ref.txt', 'a', encoding='utf-8') as citpat:
+                #                 citpat.write(partt1)
 
             path3 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
             if path3 == '':
@@ -9415,8 +10541,321 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
 
             with open(BasePath + 'filename.txt', 'w', encoding='utf-8') as f0:
                 f0.write('')
+            self._clear_article_temp_fields()
+            self._apply_selected_format_to_refs()
 
+    def _parse_author(self, author_string):
+        authors = []
+        for name_str in author_string.split(' and '):
+            name_str = name_str.strip()
+            if name_str == '':
+                continue
+            if ',' in name_str:
+                parts = [p.strip() for p in name_str.split(',', 1)]
+                authors.append({'family': parts[0], 'given': parts[1] if len(parts) > 1 else ''})
+            else:
+                parts = name_str.split()
+                authors.append({'family': parts[-1], 'given': ' '.join(parts[:-1])})
+        return authors
+
+    def _convert_entry_to_csl(self, entry):
+        csl_item = {'id': entry.get('ID', entry.get('id', 'item'))}
+        type_mapping = {
+            'article': 'article-journal',
+            'book': 'book',
+            'incollection': 'chapter',
+            'inproceedings': 'paper-conference',
+            'conference': 'paper-conference',
+            'phdthesis': 'thesis',
+            'mastersthesis': 'thesis',
+            'techreport': 'report',
+            'misc': 'document',
+            'unpublished': 'manuscript',
+        }
+        entrytype = entry.get('ENTRYTYPE', entry.get('entrytype', 'document')).lower()
+        csl_item['type'] = type_mapping.get(entrytype, 'document')
+
+        field_mapping = {
+            'title': 'title', 'journal': 'container-title', 'booktitle': 'container-title',
+            'volume': 'volume', 'number': 'issue', 'pages': 'page', 'publisher': 'publisher',
+            'url': 'URL', 'doi': 'DOI', 'abstract': 'abstract', 'issn': 'ISSN',
+            'school': 'publisher', 'institution': 'publisher', 'howpublished': 'medium',
+        }
+        for bib_field, csl_field in field_mapping.items():
+            if bib_field in entry:
+                csl_item[csl_field] = entry[bib_field]
+
+        if 'author' in entry:
+            csl_item['author'] = self._parse_author(entry['author'])
+        if 'year' in entry:
+            try:
+                csl_item['issued'] = {'date-parts': [[int(entry['year'])]]}
+            except Exception:
+                csl_item['issued'] = {'date-parts': [[0]]}
+        return csl_item
+
+    def _ensure_csl_styles(self):
+        home_dir = str(Path.home())
+        base_dir = os.path.join(home_dir, "StrawberryAppPath")
+        if not os.path.exists(base_dir):
+            os.mkdir(base_dir)
+        csl_dir = os.path.join(base_dir, "CitationFormat")
+        if not os.path.exists(csl_dir):
+            os.mkdir(csl_dir)
+        list_file = os.path.join(csl_dir, "formats.txt")
+        if not os.path.exists(list_file):
+            with open(list_file, 'a', encoding='utf-8') as f0:
+                f0.write('')
+        formats = codecs.open(list_file, 'r', encoding='utf-8').read().split('\n')
+        formats = [i for i in formats if i.strip() != '' and i.strip().lower() != 'quickcite']
+        style_map = {}
+        for fmt in formats:
+            name = fmt.strip()
+            filename = name if name.endswith('.csl') else f"{name}.csl"
+            style_path = os.path.join(csl_dir, filename)
+            if os.path.exists(style_path):
+                style_map[name] = style_path
+        return style_map
+
+    def _generate_csl_citations(self, title, script_dir, latest_bib_block=None):
+        try:
+            import bibtexparser
+            from bibtexparser.bparser import BibTexParser
+            from bibtexparser.customization import convert_to_unicode
+            from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
+            from citeproc import formatter
+            from citeproc.source.json import CiteProcJSON
+        except Exception:
+            return
+
+        if title == '' or script_dir == '':
+            return
+        bib_file = os.path.join(script_dir, 'StrawberryCitations', title, f"{title}.bib")
+        if not os.path.exists(bib_file):
+            return
+        style_map = self._ensure_csl_styles()
+        if not style_map:
+            return
+        parser = BibTexParser(common_strings=True)
+        parser.customization = convert_to_unicode
+        entries = []
+        # Prefer parsing the latest block directly to avoid malformed older entries
+        if latest_bib_block:
+            try:
+                bib_db_latest = bibtexparser.loads(latest_bib_block, parser=parser)
+                entries = bib_db_latest.entries
+            except Exception:
+                entries = []
+        if not entries:
+            try:
+                with open(bib_file, 'r', encoding='utf-8') as bf:
+                    bib_db = bibtexparser.load(bf, parser=parser)
+                    entries = bib_db.entries
+            except Exception:
+                return
+        if not entries:
+            return
+
+        cit_dir = os.path.join(script_dir, 'StrawberryCitations', title)
+
+        def _append_line(path, text):
+            if text is None or text.strip() == '':
+                return
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            needs_newline = os.path.exists(path) and os.path.getsize(path) > 0
+            with open(path, 'a', encoding='utf-8') as f0:
+                if needs_newline:
+                    f0.write('\n')
+                f0.write(text.strip())
+
+        # Only process the most recently added entry (parsed from latest_bib_block if available)
+        latest_entry = entries[-1]
+        csl_item = self._convert_entry_to_csl(latest_entry)
+        for fmt, style_path in style_map.items():
+            if not os.path.exists(style_path):
+                continue
+            try:
+                style = CitationStylesStyle(style_path, validate=False)
+                bib_source = CiteProcJSON([csl_item])
+                bibliography = CitationStylesBibliography(style, bib_source, formatter.plain)
+                citation = Citation([CitationItem(csl_item['id'])])
+                bibliography.register(citation)
+                inline_cite = str(bibliography.cite(citation, lambda x: None))
+                biblio_entries = [str(item) for item in bibliography.bibliography()]
+                biblio_text = '\n'.join(biblio_entries).strip()
+            except Exception:
+                continue
+
+            inline_file = os.path.join(cit_dir, f"{title}-{fmt}-in.txt")
+            biblio_file = os.path.join(cit_dir, f"{title}-{fmt}.txt")
+            _append_line(inline_file, inline_cite)
+            _append_line(biblio_file, biblio_text)
+
+        # quickcite generation using basic fields
+        try:
+            is_cn = self.is_contain_chinese
+        except Exception:
+            def is_cn(x): return False
+
+        author_raw = latest_entry.get('author', 'UNKNOWN')
+        authors = [a.strip() for a in author_raw.replace(' and ', '、').split('、') if a.strip() != '']
+        if not authors:
+            authors = ['UNKNOWN']
+        first_author = authors[0]
+        title_val = latest_entry.get('title', 'UNKNOWN')
+        pub_val = latest_entry.get('journal') or latest_entry.get('booktitle') or latest_entry.get('publisher') or latest_entry.get('howpublished') or 'UNKNOWN'
+        year_val = latest_entry.get('year', '0')
+        pages_val = latest_entry.get('pages', '').replace('--', '-')
+        volume_val = str(latest_entry.get('volume', '')).strip()
+        number_val = str(latest_entry.get('number', '')).strip()
+        entry_type = latest_entry.get('ENTRYTYPE', '').lower()
+
+        # build vol/num text
+        vol_text = ''
+        if volume_val and volume_val.upper() != 'UNKNOWN':
+            vol_text = volume_val
+        if number_val and number_val.upper() != 'UNKNOWN' and number_val != '000':
+            if vol_text != '':
+                vol_text = f"{vol_text}({number_val})"
+            else:
+                vol_text = f"{number_val}"
+
+        cn_flag = is_cn(str(title_val)) or is_cn(str(pub_val))
+        inline_qc = ''
+        biblio_qc = ''
+        if cn_flag:
+            if latest_entry.get('journal') or latest_entry.get('booktitle'):
+                # 中文文章
+                biblio_qc = f"{'、'.join(authors)}：《{title_val}》，载《{pub_val}》，"
+                biblio_qc += f"{year_val} 年"
+                if vol_text != '':
+                    biblio_qc += f"第 {vol_text} 期，"
+                if pages_val and pages_val.upper() != 'UNKNOWN':
+                    biblio_qc += f"第 {pages_val} 页。"
+                else:
+                    biblio_qc = biblio_qc.rstrip('，')
+                    if not biblio_qc.endswith('。'):
+                        biblio_qc += '。'
+                inline_qc = f'（{first_author}，{year_val}）'
+            else:
+                # 中文书籍
+                biblio_qc = f"{'、'.join(authors)}：《{title_val}》，{pub_val}"
+                if year_val and year_val != '0':
+                    biblio_qc += f"，{year_val} 年"
+                if number_val and number_val.upper() != 'UNKNOWN' and number_val != '000':
+                    biblio_qc += f" {number_val} 月版"
+                else:
+                    biblio_qc += "版"
+                biblio_qc += ''
+                if pages_val and pages_val.upper() != 'UNKNOWN':
+                    biblio_qc += f"，第 {pages_val} 页。"
+                else:
+                    if not biblio_qc.endswith('。'):
+                        biblio_qc += '。'
+                inline_qc = f'（{first_author}，{year_val}）'
+        else:
+            # English formatting mirroring addmain citation style
+            if entry_type == 'book' or (pub_val != 'UNKNOWN' and latest_entry.get('journal') is None and latest_entry.get('booktitle') is None):
+                biblio_qc = f"{', '.join(authors)}, {title_val}, {pub_val}, {year_val}"
+                if pages_val and pages_val.upper() != 'UNKNOWN':
+                    biblio_qc += f", pp. {pages_val}"
+                if not biblio_qc.endswith('.'):
+                    biblio_qc += '.'
+            else:
+                biblio_qc = f"{', '.join(authors)}, “{title_val},” *{pub_val}*"
+                if vol_text != '':
+                    biblio_qc += f", {vol_text}"
+                biblio_qc += f", {year_val}"
+                if pages_val and pages_val.upper() != 'UNKNOWN':
+                    biblio_qc += f", pp. {pages_val}"
+                if not biblio_qc.endswith('.'):
+                    biblio_qc += '.'
+            inline_qc = ''  # keep inline quickcite empty by design
+
+        inline_file = os.path.join(cit_dir, f"{title}-quickcite-in.txt")
+        biblio_file = os.path.join(cit_dir, f"{title}-quickcite.txt")
+        if not os.path.exists(inline_file):
+            with open(inline_file, 'a', encoding='utf-8') as _tmp:
+                _tmp.write('')
+        if biblio_qc.strip() != '':
+            _append_line(biblio_file, biblio_qc)
+
+    def _apply_selected_format_to_refs(self):
+        if self.leii1.text() == '':
+            return
+        try:
+            title = self._get_citation_title_key()
+        except Exception:
+            title = self.leii1.text()
+        base_filename = str(self.leii1.text())
+        home_dir = str(Path.home())
+        base_dir = os.path.join(home_dir, "StrawberryAppPath")
+        csl_dir = os.path.join(base_dir, "CitationFormat")
+        selected_file = os.path.join(csl_dir, "selected_format.txt")
+        try:
+            selected_fmt = codecs.open(selected_file, 'r', encoding='utf-8').read().strip()
+        except Exception:
+            selected_fmt = ''
+        if selected_fmt == '':
+            selected_fmt = 'Quick cite (defaut)'
+        script_dir = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+        if script_dir == '':
+            return
+        cit_dir = os.path.join(script_dir, 'StrawberryCitations', title)
+        # only use selected format file (non-inline)
+        fmt_key = selected_fmt.strip()
+        if fmt_key.lower().startswith('quick'):
+            fmt_key = 'quickcite'
+        if fmt_key.lower().endswith('.csl'):
+            fmt_key = fmt_key[:-4]
+        fmt_name = fmt_key
+        fmt_file = os.path.join(cit_dir, f"{title}-{fmt_name}.txt")
+        if not os.path.exists(fmt_file):
+            alt_file = os.path.join(cit_dir, f"{title}-{fmt_name.lower()}.txt")
+            if os.path.exists(alt_file):
+                fmt_file = alt_file
+            else:
+                qc_file = os.path.join(cit_dir, f"{title}-quickcite.txt")
+                if os.path.exists(qc_file):
+                    fmt_file = qc_file
+                else:
+                    return
+        try:
+            lines = codecs.open(fmt_file, 'r', encoding='utf-8').read().split('\n')
+        except Exception:
+            return
+        lines = [l for l in lines if l.strip() != '']
+        prefixed = []
+        for idx, line in enumerate(lines, 1):
+            # strip leading [number] artifacts
+            clean_line = re.sub(r'^\s*\[\s*\d+\s*\]\s*', '', line).strip()
+            prefixed.append(f"[^{idx}]: {clean_line}")
+        with open(BasePath + 'path_ref.txt', 'w', encoding='utf-8') as rf:
+            rf.write('\n'.join(prefixed))
+        # write back to current inspiration markdown
+        path3 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+        if path3 == '':
+            return
+        tarname4 = base_filename + ".md"
+        fulldir4 = os.path.join(path3, tarname4)
+        if os.path.exists(fulldir4):
+            contm = codecs.open(fulldir4, 'r', encoding='utf-8').read()
+            body_text = self._strip_inspiration_body(contm)
+            composed = self._compose_inspiration_file(body_text)
+            with open(fulldir4, 'w', encoding='utf-8') as f3:
+                f3.write(composed)
+            # refresh UI
+            self._show_inspiration_content(composed)
+            self.textii2.ensureCursorVisible()
+            cursor = self.textii2.textCursor()
+            pos = len(self.textii2.toPlainText())
+            cursor.setPosition(pos)
+            self.textii2.setTextCursor(cursor)
     def clinp(self):
+        self.btn_ia1.setEnabled(True)
+        w4.csl_open_btn.setEnabled(True)
+        w4.csl_add_btn.setEnabled(True)
+        w4.csl_delete_btn.setVisible(True)
         if self.textii2.toPlainText() != '' and self.leii1.text() != '':
             path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
             tarname1 = str(self.leii1.text()) + ".md"
@@ -9432,6 +10871,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.textii2_head.clear()
         self.textii2_foot.clear()
         self.real2.clear()
+        self._set_citation_controls_enabled(True)
         with open(BasePath + 'path_ref.txt', 'w', encoding='utf-8') as citpat:
             citpat.write('')
         with open(BasePath + 'path_lat.txt', 'w', encoding='utf-8') as reflat:
@@ -9455,6 +10895,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             r1.write('')
         self.leiinote.clear()
         self.leii2.setPlaceholderText('Number (blank = auto mode)')
+        self._cached_title_key = ''
 
     def save1(self):
         oldv = self.text.verticalScrollBar().value()
@@ -9555,8 +10996,31 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             else:
                 with open(BasePath + 'path_std.txt', 'w', encoding='utf-8') as f0:
                     f0.write(self.leii1.text())
-                tarname1 = str(self.leii1.text()) + ".md"
-                fulldir1 = os.path.join(path1, tarname1)
+                def _candidate_names(raw):
+                    cands = [raw]
+                    try:
+                        import re as _re
+                        base1 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', raw).rstrip()
+                        if base1 and base1 not in cands:
+                            cands.append(base1)
+                        base2 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', base1).rstrip()
+                        if base2 and base2 not in cands:
+                            cands.append(base2)
+                    except Exception:
+                        pass
+                    return cands
+
+                def _resolve_path(dir_path, raw_name, ext):
+                    for nm in _candidate_names(raw_name):
+                        cand = os.path.join(dir_path, nm + ext)
+                        if os.path.exists(cand):
+                            return cand, nm + ext
+                    return os.path.join(dir_path, raw_name + ext), raw_name + ext
+
+                fulldir1 = ''
+                tarname1 = ''
+                fulldir1, tarname1 = _resolve_path(path1, str(self.leii1.text()), ".md")
+                base_name_noext = os.path.splitext(os.path.basename(fulldir1))[0]
                 # Only persist body; header/footer are composed later
                 body_text = self.textii2.toPlainText()
                 body_text = self._strip_inspiration_body(body_text).rstrip('\n')
@@ -9587,6 +11051,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 result = ''.join(result)
                 pretc = result.replace('<!--Title: ', '')
                 prettle = pretc.replace('-->', '')
+                prettle = re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', prettle).rstrip()
                 part_a = '''%!TEX program = xelatex
 % 完整编译: xelatex -> biber/bibtex -> xelatex -> xelatex
 \\documentclass[lang=cn,11pt,a4paper]{elegantpaper}'''
@@ -9902,6 +11367,33 @@ Keywords.
                 pattern2 = re.compile(r'\[.[0-9]+]')
                 result = pattern2.findall(savelatex)
                 result.sort()
+                # load selected format and inline list
+                home_dir = str(Path.home())
+                base_dir = os.path.join(home_dir, "StrawberryAppPath")
+                csl_dir = os.path.join(base_dir, "CitationFormat")
+                selected_fmt = 'quickcite'
+                try:
+                    selected_fmt = codecs.open(os.path.join(csl_dir, "selected_format.txt"), 'r', encoding='utf-8').read().strip() or 'quickcite'
+                except Exception:
+                    selected_fmt = 'quickcite'
+                fmt_key = selected_fmt
+                if fmt_key.lower().startswith('quick'):
+                    fmt_key = 'quickcite'
+                if fmt_key.lower().endswith('.csl'):
+                    fmt_key = fmt_key[:-4]
+                inline_entries = []
+                if fmt_key != 'quickcite':
+                    title_key = ''
+                    try:
+                        title_key = self._get_citation_title_key()
+                    except Exception:
+                        title_key = self.leii1.text()
+                    inline_file = os.path.join(path1, 'StrawberryCitations', title_key, f"{title_key}-{fmt_key}-in.txt")
+                    if os.path.exists(inline_file):
+                        try:
+                            inline_entries = [l for l in codecs.open(inline_file, 'r', encoding='utf-8').read().split('\n') if l.strip() != '']
+                        except Exception:
+                            inline_entries = []
                 cajref = codecs.open(BasePath + 'path_ref.txt', 'r', encoding='utf-8').read()
                 cajref = cajref.replace('[[', '')
                 cajref = cajref.replace(']]', '')
@@ -9914,9 +11406,22 @@ Keywords.
                     if result[i] in cajref[n]:
                         stripednum = result[i].replace('[^', '')
                         stripednum = stripednum.replace(']', '')
-                        stripedref = re.sub(r"\[.*]: ", '', cajref[n])
-                        stripedref = re.sub(r"<e>", '', stripedref)
-                        savelatex = re.sub(r"\[." + stripednum + "]", "\\footnote{" + stripedref + '}', savelatex)
+                        if fmt_key == 'quickcite':
+                            stripedref = re.sub(r"\[.*]: ", '', cajref[n])
+                            stripedref = re.sub(r"<e>", '', stripedref)
+                            savelatex = re.sub(r"\[." + stripednum + "]", "\\footnote{" + stripedref + '}', savelatex)
+                        else:
+                            idx_num = 0
+                            try:
+                                idx_num = int(stripednum) - 1
+                            except Exception:
+                                idx_num = -1
+                            replacement = ''
+                            if idx_num >= 0 and idx_num < len(inline_entries):
+                                replacement = inline_entries[idx_num]
+                            else:
+                                replacement = f"\\cite{{ref{stripednum}}}"
+                            savelatex = re.sub(r"\[\^" + stripednum + r"\]", lambda m: replacement, savelatex)
                         i = i + 1
                         n = 0
                         continue
@@ -10178,7 +11683,7 @@ Keywords.
                 if self.widgettem.currentIndex() == 8:
                     part_g = '\n' + self.template_p6
 
-                tarname10 = str(self.leii1.text()) + ".tex"
+                tarname10 = base_name_noext + ".tex"
                 fulldir10 = os.path.join(path1, tarname10)
                 lattex = part_a + part_b + part_c + part_d + part_e + part_f + part_g
                 with open(fulldir10, 'a', encoding='utf-8') as f0:
@@ -10190,8 +11695,7 @@ Keywords.
             self.choosepart.clear()
             self.choosepart.addItems(['Append at the end (default)', 'Append at the current cursor'])
             pathscr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
-            tarname1 = str(self.leii1.text()) + ".md"
-            fulldir1 = os.path.join(pathscr, tarname1)
+            fulldir1, tarname1 = _resolve_path(pathscr, str(self.leii1.text()), ".md")
             maintxt = codecs.open(fulldir1, 'r', encoding='utf-8').read()
             pattern = re.compile(r'## (.*?)\n')
             result = pattern.findall(maintxt)
@@ -10219,8 +11723,7 @@ Keywords.
             if pathend == '':
                 self.textii2.setPlainText('Some directory is empty. Please go to preferences and check!')
             else:
-                tarnameend = str(self.leii1.text()) + ".md"
-                fulldirend = os.path.join(pathend, tarnameend)
+                fulldirend, tarnameend = _resolve_path(pathend, str(self.leii1.text()), ".md")
                 if self.leii1.text() != '':
                     contend = codecs.open(fulldirend, 'r', encoding='utf-8').read()
                     self._show_inspiration_content(contend)
@@ -10237,8 +11740,7 @@ Keywords.
             if pathend2 == '':
                 self.textii3.setPlainText('Some directory is empty. Please go to preferences and check!')
             else:
-                tarnameend = str(self.leii1.text()) + ".tex"
-                fulldirend = os.path.join(pathend2, tarnameend)
+                fulldirend, tarnameend = _resolve_path(pathend2, str(self.leii1.text()), ".tex")
                 if self.leii1.text() != '':
                     contend = codecs.open(fulldirend, 'r', encoding='utf-8').read()
                     self.textii3.setPlainText(contend)
@@ -10529,16 +12031,19 @@ Keywords.
             self.real1.setHtml(newhtml)
             full_md = ''
             path_scr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
-            if path_scr != '' and self.leii1.text() != '':
-                tarname = str(self.leii1.text()) + ".md"
-                fulldir = os.path.join(path_scr, tarname)
-                if os.path.exists(fulldir):
-                    full_md = codecs.open(fulldir, 'r', encoding='utf-8').read()
-            if full_md == '':
-                head_md = self._build_inspiration_header()
-                body_md = self.textii2.toPlainText().rstrip('\n')
-                foot_md = self._build_inspiration_references()
-                full_md = head_md + '\n' + body_md + foot_md
+            if self.leii1.text() == '':
+                full_md = ''
+            else:
+                if path_scr != '' and self.leii1.text() != '':
+                    tarname = str(self.leii1.text()) + ".md"
+                    fulldir = os.path.join(path_scr, tarname)
+                    if os.path.exists(fulldir):
+                        full_md = codecs.open(fulldir, 'r', encoding='utf-8').read()
+                if full_md == '':
+                    head_md = self._build_inspiration_header()
+                    body_md = self.textii2.toPlainText().rstrip('\n')
+                    foot_md = self._build_inspiration_references()
+                    full_md = head_md + '\n' + body_md + foot_md
             newhtml2 = self.md2html(full_md)
             self.real2.setHtml(newhtml2)
             md = self.carda.toPlainText()
@@ -10688,6 +12193,8 @@ Keywords.
             self.read_t3.setVisible(True)
             self.read_t8.setVisible(True)
             self.read_t4.setVisible(True)
+            self.read_t4_doi.setVisible(True)
+            self.read_t4_isbn.setVisible(True)
             self.read_t5.setVisible(True)
             self.lbltool06.setVisible(True)
             self.tool8.setVisible(True)
@@ -10867,6 +12374,8 @@ Keywords.
             self.read_t3.setVisible(True)
             self.read_t8.setVisible(True)
             self.read_t4.setVisible(True)
+            self.read_t4_doi.setVisible(True)
+            self.read_t4_isbn.setVisible(True)
             self.read_t5.setVisible(True)
             self.lbltool06.setVisible(True)
             self.tool8.setVisible(True)
@@ -10898,8 +12407,28 @@ Keywords.
         if self.leii3.text() != '' and self.leii4.text() != '':
             path3 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
             if path3 != '' and self.leii1.text() != '':
-                tarname4 = str(self.leii1.text()) + ".md"
-                fulldir4 = os.path.join(path3, tarname4)
+                def _candidate_names(raw):
+                    cands = [raw]
+                    try:
+                        import re as _re
+                        base1 = _re.sub(r'\s*\d{8,20}$', '', raw).rstrip()
+                        if base1 and base1 not in cands:
+                            cands.append(base1)
+                        base2 = _re.sub(r'\s*\d{8,20}$', '', base1).rstrip()
+                        if base2 and base2 not in cands:
+                            cands.append(base2)
+                    except Exception:
+                        pass
+                    return cands
+                fulldir4 = ''
+                for nm in _candidate_names(str(self.leii1.text())):
+                    cand = os.path.join(path3, nm + ".md")
+                    if os.path.exists(cand):
+                        fulldir4 = cand
+                        break
+                if fulldir4 == '':
+                    tarname4 = str(self.leii1.text()) + ".md"
+                    fulldir4 = os.path.join(path3, tarname4)
                 with open(fulldir4, 'a', encoding='utf-8') as f0:
                     f0.write('')
 
@@ -10990,8 +12519,28 @@ Keywords.
     def addimage(self):
         path3 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
         if path3 != '' and self.leii1.text() != '':
-            tarname4 = str(self.leii1.text()) + ".md"
-            fulldir4 = os.path.join(path3, tarname4)
+            def _candidate_names(raw):
+                cands = [raw]
+                try:
+                    import re as _re
+                    base1 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', raw).rstrip()
+                    if base1 and base1 not in cands:
+                        cands.append(base1)
+                    base2 = _re.sub(r'\s+(?:record\s*)?\d{8,20}$', '', base1).rstrip()
+                    if base2 and base2 not in cands:
+                        cands.append(base2)
+                except Exception:
+                    pass
+                return cands
+            fulldir4 = ''
+            for nm in _candidate_names(str(self.leii1.text())):
+                cand = os.path.join(path3, nm + ".md")
+                if os.path.exists(cand):
+                    fulldir4 = cand
+                    break
+            if fulldir4 == '':
+                tarname4 = str(self.leii1.text()) + ".md"
+                fulldir4 = os.path.join(path3, tarname4)
             with open(fulldir4, 'a', encoding='utf-8') as f0:
                 f0.write('')
             contm = codecs.open(fulldir4, 'r', encoding='utf-8').read()
@@ -14999,6 +16548,8 @@ class window4(QWidget):  # Customization settings
         if not os.path.exists(fulldir2):
             with open(fulldir2, 'a', encoding='utf-8') as f0:
                 f0.write('https://www.collinsdictionary.com/dictionary/english/')
+        # ensure citation format dir and list file
+        self._ensure_citation_dir()
 
         self.other_1 = QLineEdit(self)
         self.other_1.setPlaceholderText('The default is Collins Dictionary')
@@ -15027,6 +16578,29 @@ class window4(QWidget):  # Customization settings
         self.insp_autosave_combo.setCurrentIndex(self.insp_autosave_combo.findText(str(current_limit)))
         self.insp_autosave_combo.currentIndexChanged.connect(self.save_inspiration_autosave_limit)
 
+        # CSL formats
+        self.csl_selected_path = ''
+        self.csl_btn_style_default = ''
+        self.csl_info = QLabel('Citation formats (.csl):', self)
+        self.csl_open_btn = QPushButton('Open .csl', self)
+        self.csl_open_btn.setFixedWidth(120)
+        self.csl_open_btn.clicked.connect(self.open_csl_file)
+        self.csl_btn_style_default = self.csl_open_btn.styleSheet()
+        self.csl_name_input = QLineEdit(self)
+        self.csl_name_input.setPlaceholderText('Name this format')
+        self.csl_add_btn = QPushButton('Add', self)
+        self.csl_add_btn.setFixedWidth(80)
+        self.csl_add_btn.clicked.connect(self.add_csl_format)
+        self.csl_list = QListWidget(self)
+        self.csl_list.setMaximumHeight(150)
+        self.csl_list.itemSelectionChanged.connect(self.csl_selection_changed)
+        self.csl_delete_btn = QPushButton('Delete', self)
+        self.csl_delete_btn.setFixedWidth(80)
+        self.csl_delete_btn.setStyleSheet('color: red')
+        self.csl_delete_btn.setEnabled(False)
+        self.csl_delete_btn.clicked.connect(self.delete_csl_format)
+        self.load_csl_formats()
+
         t1 = QWidget()
         vboxa = QHBoxLayout()
         vboxa.setContentsMargins(0, 0, 0, 0)
@@ -15049,11 +16623,29 @@ class window4(QWidget):  # Customization settings
         vboxb.addWidget(self.insp_autosave_combo)
         t3.setLayout(vboxb)
 
+        t4 = QWidget()
+        csl_row1 = QHBoxLayout()
+        csl_row1.setContentsMargins(0, 0, 0, 0)
+        csl_row1.addWidget(self.csl_info)
+        csl_row1.addWidget(self.csl_open_btn)
+        csl_row1.addWidget(self.csl_name_input)
+        csl_row1.addWidget(self.csl_add_btn)
+        t4.setLayout(csl_row1)
+
+        t5 = QWidget()
+        csl_row2 = QHBoxLayout()
+        csl_row2.setContentsMargins(0, 0, 0, 0)
+        csl_row2.addWidget(self.csl_list)
+        csl_row2.addWidget(self.csl_delete_btn)
+        t5.setLayout(csl_row2)
+
         vbox1 = QVBoxLayout()
         vbox1.setContentsMargins(20, 20, 20, 20)
         vbox1.addWidget(t1)
         vbox1.addWidget(t2)
         vbox1.addWidget(t3)
+        vbox1.addWidget(t4)
+        vbox1.addWidget(t5)
         vbox1.addStretch()
         self.otherbar.setLayout(vbox1)
 
@@ -15149,6 +16741,85 @@ class window4(QWidget):  # Customization settings
             with open(BasePath + 'showref.txt', 'w', encoding='utf-8') as f0:
                 f0.write('0')
 
+    def _ensure_citation_dir(self):
+        home_dir = str(Path.home())
+        base_dir = os.path.join(home_dir, "StrawberryAppPath")
+        if not os.path.exists(base_dir):
+            os.mkdir(base_dir)
+        csl_dir = os.path.join(base_dir, "CitationFormat")
+        if not os.path.exists(csl_dir):
+            os.mkdir(csl_dir)
+        list_file = os.path.join(csl_dir, "formats.txt")
+        if not os.path.exists(list_file):
+            with open(list_file, 'a', encoding='utf-8') as f0:
+                f0.write('')
+        return csl_dir, list_file
+
+    def load_csl_formats(self):
+        csl_dir, list_file = self._ensure_citation_dir()
+        formats = codecs.open(list_file, 'r', encoding='utf-8').read().split('\n')
+        formats = [i for i in formats if i.strip() != '']
+        self.csl_list.clear()
+        self.csl_list.addItems(formats)
+        self.csl_delete_btn.setEnabled(False)
+        return csl_dir, list_file
+
+    def open_csl_file(self):
+        file_name, ok = QFileDialog.getOpenFileName(self, "Open File", str(Path.home()),
+                                                    "CSL Files (*.csl)")
+        if file_name != '':
+            self.csl_selected_path = file_name
+            self.csl_open_btn.setStyleSheet('''border: 1px outset grey;
+                                    background-color: #0085FF;
+                                    border-radius: 4px;
+                                    padding: 1px;
+                                    color: #FFFFFF''')
+        else:
+            self.csl_selected_path = ''
+            self.csl_open_btn.setStyleSheet(self.csl_btn_style_default)
+
+    def add_csl_format(self):
+        csl_dir, list_file = self._ensure_citation_dir()
+        name = self.csl_name_input.text().strip()
+        if self.csl_selected_path == '' or name == '':
+            return
+        dest_name = name if name.lower().endswith('.csl') else name + '.csl'
+        dest_path = os.path.join(csl_dir, dest_name)
+        shutil.copy(self.csl_selected_path, dest_path)
+        formats = codecs.open(list_file, 'r', encoding='utf-8').read().split('\n')
+        formats = [i for i in formats if i.strip() != '']
+        if name not in formats:
+            formats.append(name)
+        with open(list_file, 'w', encoding='utf-8') as f0:
+            f0.write('\n'.join(formats))
+        self.csl_selected_path = ''
+        self.csl_open_btn.setStyleSheet(self.csl_btn_style_default)
+        self.csl_name_input.clear()
+        self.load_csl_formats()
+
+    def csl_selection_changed(self):
+        self.csl_delete_btn.setEnabled(self.csl_list.currentItem() is not None)
+
+    def delete_csl_format(self):
+        current = self.csl_list.currentItem()
+        if current is None:
+            return
+        name = current.text()
+        csl_dir, list_file = self._ensure_citation_dir()
+        formats = codecs.open(list_file, 'r', encoding='utf-8').read().split('\n')
+        formats = [i for i in formats if i.strip() != '' and i != name]
+        with open(list_file, 'w', encoding='utf-8') as f0:
+            f0.write('\n'.join(formats))
+        file_candidates = [os.path.join(csl_dir, name),
+                           os.path.join(csl_dir, name + '.csl')]
+        for fp in file_candidates:
+            if os.path.exists(fp):
+                try:
+                    os.remove(fp)
+                except Exception:
+                    pass
+        self.load_csl_formats()
+
     def bot_rememberhistory(self):
         if self.bot_checkBox2.isChecked():
             with open(BasePath + 'history.txt', 'w', encoding='utf-8') as f0:
@@ -15162,10 +16833,10 @@ class window4(QWidget):  # Customization settings
             self.setFixedSize(900, 475)
         if inex == 1:
             self.setFixedSize(900, 840)
+        # if inex == 2:
+        #     self.setFixedSize(900, 840)
         if inex == 2:
-            self.setFixedSize(900, 840)
-        if inex == 3:
-            self.setFixedSize(900, 140)
+            self.setFixedSize(900, 340)
 
     def saveandclear(self):
         home_dir = str(Path.home())
@@ -15364,6 +17035,7 @@ class window4(QWidget):  # Customization settings
         else:
             self.lbl4_101.setText(path10)
             self.lbl4_101.setStyleSheet('color:black')
+        self.load_csl_formats()
 
     def fullsave(self):
         home_dir = str(Path.home())
@@ -15808,6 +17480,19 @@ style_sheet_ori = '''
         background-color: #F3F2EE;
         color: #000000;
         font: 14pt Times New Roman;
+}
+    QListWidget{
+        border: 1px solid grey;  
+        border-radius:4px;
+        padding: 1px 5px 1px 3px; 
+        background-clip: border;
+        background-color: #F3F2EE;
+        color: #000000;
+        font: 14pt Times New Roman;
+}
+    QMessageBox QPushButton {
+		min-width: 100px;
+		height: 20px;
 }
 '''
 
