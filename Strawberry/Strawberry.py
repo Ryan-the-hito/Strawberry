@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/Users/ryanshen/Documents/A-workingfilewithp3.11/.venv/bin/python
 # -*- coding: utf-8 -*-
 # -*- encoding:UTF-8 -*-
 # coding=utf-8
@@ -313,7 +313,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.8', self)
+        lbl1 = QLabel('Version 2.0.9', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -776,7 +776,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.8', self)
+        self.lbl = QLabel('Current Version: v2.0.9', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -2851,13 +2851,15 @@ class ReaderLoader(QObject):
     """Worker that loads easyocr.Reader on a background thread."""
     finished = pyqtSignal(object, str)
 
-    def __init__(self, languages):
+    def __init__(self, languages, model_dir=None):
         super().__init__()
         self.languages = languages
+        self.model_dir = model_dir or os.path.join(BasePath, "model")
 
     def run(self):
         try:
-            reader = easyocr.Reader(self.languages)
+            os.makedirs(self.model_dir, exist_ok=True)
+            reader = easyocr.Reader(self.languages, model_storage_directory=self.model_dir)
             self.finished.emit(reader, "")
         except Exception as e:
             self.finished.emit(None, str(e))
@@ -3015,12 +3017,16 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         animation.start()
 
     def _current_screen_geometry(self):
-        screen = QGuiApplication.screenAt(QCursor.pos())
-        if screen:
-            return screen.availableGeometry()
         window_handle = self.windowHandle()
         if window_handle and window_handle.screen():
             return window_handle.screen().availableGeometry()
+        geo_center = self.frameGeometry().center()
+        screen = QGuiApplication.screenAt(geo_center)
+        if screen:
+            return screen.availableGeometry()
+        screen = QGuiApplication.screenAt(QCursor.pos())
+        if screen:
+            return screen.availableGeometry()
         if self.screen():
             return self.screen().availableGeometry()
         primary = QGuiApplication.primaryScreen()
@@ -3158,12 +3164,13 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             return
         self._start_ocr_selection()
 
-    def _load_ocr_reader(self):
+    def _load_ocr_reader(self, show_message: bool = True):
         self.ocr_reader_loading = True
         self._set_ocr_buttons_state(False, loading=True)
-        QMessageBox.information(self, "OCR", "First use: downloading the OCR model in the background. Please wait...")
+        if show_message:
+            QMessageBox.information(self, "OCR", "First use: downloading the OCR model in the background. Please wait...")
         self.ocr_reader_thread = QThread()
-        self.ocr_reader_worker = ReaderLoader(self._ocr_language_list())
+        self.ocr_reader_worker = ReaderLoader(self._ocr_language_list(), model_dir=os.path.join(BasePath, "model"))
         self.ocr_reader_worker.moveToThread(self.ocr_reader_thread)
         self.ocr_reader_thread.started.connect(self.ocr_reader_worker.run)
         self.ocr_reader_worker.finished.connect(self._on_reader_loaded)
@@ -3271,11 +3278,39 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             if self.ocr_reader_thread is not None and self.ocr_reader_thread.isRunning():
                 self.ocr_reader_thread.requestInterruption()
                 self.ocr_reader_thread.quit()
+                self.ocr_reader_thread.wait(5000)
+            self.ocr_reader_thread = None
+            self.ocr_reader = None
+            if self.insp_backup_timer is not None:
+                self.insp_backup_timer.stop()
+                self.insp_backup_timer.deleteLater()
+                self.insp_backup_timer = None
+            try:
+                app.removeEventFilter(self)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def reset_ocr_state(self):
+        """Force OCR to reload next time (used when language changes)."""
+        try:
+            if self.ocr_reader_thread is not None and self.ocr_reader_thread.isRunning():
+                self.ocr_reader_thread.requestInterruption()
+                self.ocr_reader_thread.quit()
                 self.ocr_reader_thread.wait(2000)
             self.ocr_reader_thread = None
             self.ocr_reader = None
+            self.ocr_reader_loading = False
+            self._set_ocr_buttons_state(True, loading=False)
         except Exception:
             pass
+
+    def reload_ocr_for_language_change(self):
+        """Immediately drop current OCR model and reload with new language."""
+        self.reset_ocr_state()
+        # 直接后台重载新语言模型，避免下次点击仍用旧模型
+        self._load_ocr_reader(show_message=False)
 
     def needpath(self):
         warn = CustomDialog_warn()
@@ -12551,6 +12586,7 @@ Keywords.
             self.newbox = QVBoxLayout()
             self.newbox.addWidget(self.main2)
             self.newbox.addWidget(self.widget0)
+            self.newbox.addWidget(self.art_ocr_row)
             self.newbox.addWidget(self.tabs)
             self.art_tab.setLayout(self.newbox)
 
@@ -12638,6 +12674,7 @@ Keywords.
             self.wings_h_box.setContentsMargins(0, 0, 0, 0)
             self.wings_h_box.addWidget(self.upper1)
             self.wings_h_box.addWidget(self.widget0)
+            self.wings_h_box.addWidget(self.art_ocr_row)
             self.wings_h_box.addWidget(self.tabs)
             self.description_box.setLayout(self.wings_h_box)
 
@@ -15045,62 +15082,63 @@ Keywords.
 
     def _toggle_pin_tab(self):
         screen_geom = self._current_screen_geometry()
-        SCREEN_WEIGHT = int(screen_geom.width())
-        WINDOW_WEIGHT = int(self.width())
-        DE_HEIGHT = int(screen_geom.height())
-        target_x = 0
-        target_y = self.pos().y()
-        if self.pos().x() + WINDOW_WEIGHT + 4 < SCREEN_WEIGHT and self.pos().x() > 4:
-            self.btn_00.setStyleSheet('''
-                                            border: 1px outset grey;
-                                            background-color: #FFFFFF;
-                                            border-radius: 4px;
-                                            padding: 1px;
-                                            color: #000000''')
+        screen_width = int(screen_geom.width())
+        screen_left = int(screen_geom.x())
+        screen_right = screen_left + screen_width
+        de_height = int(screen_geom.height())
+        target_y = min(max(self.pos().y(), screen_geom.y()), screen_geom.y() + screen_geom.height() - de_height)
+
+        # Read stored width (fallback to half screen)
+        win_old_width = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read()
+        try:
+            stored_width = int(win_old_width)
+        except Exception:
+            stored_width = int(screen_width / 2)
+
+        max_width = screen_width
+        if action10.isChecked():
+            preferred_width = int(max_width / 4)
+        elif action7.isChecked():
+            preferred_width = int(max_width * 2 / 3)
         else:
-            if self.i % 2 == 1:
-                win_old_width = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read()
-                try:
-                    stored_width = int(win_old_width)
-                except Exception:
-                    stored_width = int(screen_geom.width() / 2)
-                max_width = int(screen_geom.width())
-                if action10.isChecked():
-                    preferred_width = int(max_width / 4)
-                elif action7.isChecked():
-                    preferred_width = int(max_width * 2 / 3)
-                else:
-                    preferred_width = int(max_width / 2)
-                target_width = min(
-                    max_width,
-                    max(self.new_width, max(preferred_width, stored_width))
-                )
-                if self.pos().x() + WINDOW_WEIGHT >= SCREEN_WEIGHT:  # 右侧显示
-                    target_x = SCREEN_WEIGHT - target_width - 3
-                btna4.setChecked(True)
-                self.btn_00.setStyleSheet('''
-                                    border: 1px outset grey;
-                                    background-color: #0085FF;
-                                    border-radius: 4px;
-                                    padding: 1px;
-                                    color: #FFFFFF''')
-                self.tab_bar.setVisible(True)
-                self.resize(int(target_width), DE_HEIGHT)
-            if self.i % 2 == 0:
-                if self.pos().x() + WINDOW_WEIGHT + 4 >= SCREEN_WEIGHT:  # 右侧隐藏
-                    target_x = SCREEN_WEIGHT - 10
-                btna4.setChecked(False)
-                self.btn_00.setStyleSheet('''
-                                    border: 1px outset grey;
-                                    background-color: #FFFFFF;
-                                    border-radius: 4px;
-                                    padding: 1px;
-                                    color: #000000''')
-                self.tab_bar.setVisible(False)
-                with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
-                    f0.write(str(self.width()))
-                self.resize(self.new_width, DE_HEIGHT)
-            self.move_window(target_x, target_y)
+            preferred_width = int(max_width / 2)
+
+        # If stored width is out of sync with current screen, fall back to current preference
+        if stored_width <= 0 or stored_width > max_width or stored_width < self.new_width:
+            stored_width = preferred_width
+        elif stored_width < preferred_width * 0.5 or stored_width > preferred_width * 1.5:
+            stored_width = preferred_width
+
+        if self.i % 2 == 1:
+            target_width = min(max_width, max(self.new_width, max(preferred_width, stored_width)))
+            target_x = screen_right - target_width - 3
+            btna4.setChecked(True)
+            self.btn_00.setStyleSheet('''
+                                border: 1px outset grey;
+                                background-color: #0085FF;
+                                border-radius: 4px;
+                                padding: 1px;
+                                color: #FFFFFF''')
+            self.tab_bar.setVisible(True)
+            self.resize(int(target_width), de_height)
+            with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
+                f0.write(str(target_width))
+        else:
+            target_x = screen_right - self.new_width - 3
+            btna4.setChecked(False)
+            self.btn_00.setStyleSheet('''
+                                border: 1px outset grey;
+                                background-color: #FFFFFF;
+                                border-radius: 4px;
+                                padding: 1px;
+                                color: #000000''')
+            self.tab_bar.setVisible(False)
+            with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
+                f0.write(str(self.width()))
+            self.resize(self.new_width, de_height)
+
+        # animate and toggle self.i in move_window
+        self.move_window(target_x, target_y)
 
     def cleanlinebreak(self, a):  # 设置清除断行的基本代码块
         for i in range(10):
@@ -17087,10 +17125,13 @@ class window4(QWidget):  # Customization settings
         save_ocr_language_code(code)
         if 'w3' in globals():
             try:
-                w3.ocr_reader = None
-                w3.ocr_reader_loading = False
+                w3.reload_ocr_for_language_change()
             except Exception:
-                pass
+                try:
+                    w3.reset_ocr_state()
+                    w3._load_ocr_reader(show_message=False)
+                except Exception:
+                    pass
 
     def save_inspiration_autosave_limit(self):
         save_inspiration_backup_limit(self.insp_autosave_combo.currentText())
@@ -17769,10 +17810,10 @@ class window4(QWidget):  # Customization settings
 
 
 class window5(QWidget):  # Floating window
-    def __init__(self):
+    def __init__(self, main_window):
         super().__init__()
+        self.w3 = main_window
         self.initUI()
-        self.w3 = window3()
         self.w3.show()
 
     def initUI(self):  # 设置窗口内布局
@@ -17936,7 +17977,7 @@ p = w3.palette()
 p.setColor(w3.backgroundRole(), QColor('#ECECEC'))
 w3.setPalette(p)
 w4 = window4()  # main2
-w5 = window5()
+w5 = window5(w3)
 action1.triggered.connect(w1.activate)
 action2.triggered.connect(w2.activate)
 action3.triggered.connect(w5.w3.activate)
