@@ -35,6 +35,21 @@ from bs4 import BeautifulSoup
 import threading
 import numpy as np
 import easyocr
+import bibtexparser
+from bibtexparser.bparser import BibTexParser
+from bibtexparser.customization import convert_to_unicode
+from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
+from citeproc import formatter
+from citeproc.source.json import CiteProcJSON
+# try:
+#     import bibtexparser
+#     from bibtexparser.bparser import BibTexParser
+#     from bibtexparser.customization import convert_to_unicode
+#     from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
+#     from citeproc import formatter
+#     from citeproc.source.json import CiteProcJSON
+# except Exception:
+#     missing_formats = []
 
 app = QApplication(sys.argv)
 app.setQuitOnLastWindowClosed(False)
@@ -6572,32 +6587,32 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                                 part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(self.le1.text()) + '》，载《' + \
                                     str(self.le3.text()) + '》，' + str(self.le4.text()) + ' 年第 ' + \
                                     str(self.le4_1.text()) + ' 期，第 ' + str(self.le10.text()) + ' 页。'
-                        if self.le3.text() == '' and self.le8.text() != '':
-                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + \
-                                          str(self.le8.text()) + '》，' + str(self.le3_1.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
-                                          str(self.le4_1.text()) + ' 月版，第 ' + str(self.le10.text()) + ' 页。'
-                    if '%' in self.le2.text():
-                        zove = str(self.le2.text()).replace('+', '、').split('、')
-                        for i in range(len(zove)):
-                            if '%' in zove[i]:
-                                zove[i] = zove[i].replace('%', '译')
-                                i = i + 1
-                                continue
-                            if '%' not in zove[i]:
-                                zove[i] = zove[i] + '著'
-                                zove[i] = ''.join(zove[i])
-                                i = i + 1
-                                continue
-                        zoveend = '，'.join(zove)
-                        zoveend = zoveend.replace('译，', '、')
-                        if self.le3.text() != '':
-                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，载《' + \
-                                str(self.le3.text()) + '》，' + str(self.le4.text()) + ' 年第 ' + \
-                                str(self.le4_1.text()) + ' 期，第 ' + str(self.le10.text()) + ' 页。'
-                        if self.le3.text() == '' and self.le8.text() != '':
-                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + \
-                                      str(self.le8.text()) + '》，' + str(self.le3_1.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
-                                      str(self.le4_1.text()) + ' 月版，第 ' + str(self.le10.text()) + ' 页。'
+                            if self.le3.text() == '' and self.le8.text() != '':
+                                part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + \
+                                    str(self.le8.text()) + '》，' + str(self.le3_1.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
+                                    str(self.le4_1.text()) + ' 月版，第 ' + str(self.le10.text()) + ' 页。'
+                        if '%' in self.le2.text():
+                            zove = str(self.le2.text()).replace('+', '、').split('、')
+                            for i in range(len(zove)):
+                                if '%' in zove[i]:
+                                    zove[i] = zove[i].replace('%', '译')
+                                    i = i + 1
+                                    continue
+                                if '%' not in zove[i]:
+                                    zove[i] = zove[i] + '著'
+                                    zove[i] = ''.join(zove[i])
+                                    i = i + 1
+                                    continue
+                            zoveend = '，'.join(zove)
+                            zoveend = zoveend.replace('译，', '、')
+                            if self.le3.text() != '':
+                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，载《' + \
+                                    str(self.le3.text()) + '》，' + str(self.le4.text()) + ' 年第 ' + \
+                                    str(self.le4_1.text()) + ' 期，第 ' + str(self.le10.text()) + ' 页。'
+                            if self.le3.text() == '' and self.le8.text() != '':
+                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + \
+                                        str(self.le8.text()) + '》，' + str(self.le3_1.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
+                                        str(self.le4_1.text()) + ' 月版，第 ' + str(self.le10.text()) + ' 页。'
                     if self.web_t3.isVisible():
                         ISOTIMEFORMAT = '%Y 年 %m 月 %d 日'
                         theTime = datetime.datetime.now().strftime(ISOTIMEFORMAT)
@@ -6605,31 +6620,31 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                             if self.leweb3.text() != '':
                                 part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(
                                 self.le1.text()) + '》，' + str(self.leweb3.text()) + '，访问时间：' + theTime + ' 。'
-                        if self.leweb3.text() == '':
-                            part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(
-                                self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
-                                          str(self.le4_1.text()) + ' 月。'
-                    if '%' in self.le2.text():
-                        zove = str(self.le2.text()).replace('+', '、').split('、')
-                        for i in range(len(zove)):
-                            if '%' in zove[i]:
-                                zove[i] = zove[i].replace('%', '译')
-                                i = i + 1
-                                continue
-                            if '%' not in zove[i]:
-                                zove[i] = zove[i] + '著'
-                                zove[i] = ''.join(zove[i])
-                                i = i + 1
-                                continue
-                        zoveend = '，'.join(zove)
-                        zoveend = zoveend.replace('译，', '、')
-                        if self.leweb3.text() != '':
-                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，' + \
-                                  str(self.leweb3.text()) + '，访问时间：' + theTime + ' 。'
-                        if self.leweb3.text() == '':
-                            part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(
-                                self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
-                                          str(self.le4_1.text()) + ' 月。'
+                            if self.leweb3.text() == '':
+                                part7_5 = '\n- ' + 'Citation: ' + str(self.le2.text()) + '：《' + str(
+                                    self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
+                                            str(self.le4_1.text()) + ' 月。'
+                        if '%' in self.le2.text():
+                            zove = str(self.le2.text()).replace('+', '、').split('、')
+                            for i in range(len(zove)):
+                                if '%' in zove[i]:
+                                    zove[i] = zove[i].replace('%', '译')
+                                    i = i + 1
+                                    continue
+                                if '%' not in zove[i]:
+                                    zove[i] = zove[i] + '著'
+                                    zove[i] = ''.join(zove[i])
+                                    i = i + 1
+                                    continue
+                            zoveend = '，'.join(zove)
+                            zoveend = zoveend.replace('译，', '、')
+                            if self.leweb3.text() != '':
+                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(self.le1.text()) + '》，' + \
+                                    str(self.leweb3.text()) + '，访问时间：' + theTime + ' 。'
+                            if self.leweb3.text() == '':
+                                part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + str(
+                                    self.le1.text()) + '》，提交给“' + str(self.leweb8.text()) + '”的论文，' + str(self.leweb10.text()) + '，' + str(self.leweb9.text()) + '，' + str(self.le4.text()) + ' 年 ' + \
+                                            str(self.le4_1.text()) + ' 月。'
                 if is_contain_english(str(self.le1.text())) and not is_contain_chinese(str(self.le1.text())):
                     if not self.web_t3.isVisible():
                         if self.le3.text() != '':
@@ -10060,15 +10075,15 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                                 if missing_formats:
                                     bib_file = os.path.join(cit_dir, f"{cache_key}.bib")
                                     if os.path.exists(bib_file):
-                                        try:
-                                            import bibtexparser
-                                            from bibtexparser.bparser import BibTexParser
-                                            from bibtexparser.customization import convert_to_unicode
-                                            from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
-                                            from citeproc import formatter
-                                            from citeproc.source.json import CiteProcJSON
-                                        except Exception:
-                                            missing_formats = []
+                                        # try:
+                                        #     import bibtexparser
+                                        #     from bibtexparser.bparser import BibTexParser
+                                        #     from bibtexparser.customization import convert_to_unicode
+                                        #     from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
+                                        #     from citeproc import formatter
+                                        #     from citeproc.source.json import CiteProcJSON
+                                        # except Exception:
+                                        #     missing_formats = []
                                         if missing_formats:
                                             parser = BibTexParser(common_strings=True)
                                             parser.customization = convert_to_unicode
@@ -10999,15 +11014,15 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         return style_map
 
     def _generate_csl_citations(self, title, script_dir, latest_bib_block=None):
-        try:
-            import bibtexparser
-            from bibtexparser.bparser import BibTexParser
-            from bibtexparser.customization import convert_to_unicode
-            from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
-            from citeproc import formatter
-            from citeproc.source.json import CiteProcJSON
-        except Exception:
-            return
+        # try:
+        #     import bibtexparser
+        #     from bibtexparser.bparser import BibTexParser
+        #     from bibtexparser.customization import convert_to_unicode
+        #     from citeproc import CitationStylesStyle, CitationStylesBibliography, Citation, CitationItem
+        #     from citeproc import formatter
+        #     from citeproc.source.json import CiteProcJSON
+        # except Exception:
+        #     return
 
         if title == '' or script_dir == '':
             return
