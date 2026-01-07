@@ -313,7 +313,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.9', self)
+        lbl1 = QLabel('Version 2.0.10', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -776,7 +776,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.9', self)
+        self.lbl = QLabel('Current Version: v2.0.10', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -2924,6 +2924,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.insp_updating = False
         self._insp_backup_lock = threading.Lock()
         self.insp_backup_timer = None
+        self._last_insp_backup_meta = None  # Track last backup to avoid redundant saves
         self.ocr_reader = None
         self.ocr_reader_loading = False
         self.ocr_reader_thread = None
@@ -2936,6 +2937,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         app.installEventFilter(self)
         self.initUI()
         self._start_inspiration_autosave()
+
+        # Monitor screen changes for automatic window size adjustment
+        if self.windowHandle():
+            self.windowHandle().screenChanged.connect(self._on_screen_changed)
 
     def initUI(self):  # 设置窗口内布局
         self.setUpMainWindow()
@@ -3004,7 +3009,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
     def move_window(self, width, height):
         animation = QPropertyAnimation(self, b"geometry", self)
         animation.setDuration(250)
-        new_pos = QRect(width, height, self.width(), self.height())
+        # Use current width and height to avoid size changes during animation
+        current_w = self.width()
+        current_h = self.height()
+        new_pos = QRect(width, height, current_w, current_h)
         animation.setEndValue(new_pos)
         animation.start()
         self.i += 1
@@ -3031,6 +3039,47 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             return self.screen().availableGeometry()
         primary = QGuiApplication.primaryScreen()
         return primary.availableGeometry() if primary else QRect(0, 0, 1440, 900)
+
+    def _on_screen_changed(self, screen):
+        """Handle screen changes: automatically adjust window size when moving to different screen or resolution changes"""
+        if not screen:
+            return
+
+        screen_geo = screen.availableGeometry()
+
+        # Recalculate size limits based on new screen
+        MOST_WEIGHT = int(screen_geo.width() * 0.75)
+        MINI_WEIGHT = int(screen_geo.width() / 4)
+        HALF_HEIGHT = int(screen_geo.height() * 0.5)
+        BIGGIST_HEIGHT = int(screen_geo.height())
+
+        # Update minimum and maximum sizes
+        self.setMinimumSize(MINI_WEIGHT, HALF_HEIGHT)
+        self.setMaximumSize(MOST_WEIGHT, BIGGIST_HEIGHT)
+
+        # Adjust current height to fit new screen, keeping width unchanged
+        new_height = min(self.height(), BIGGIST_HEIGHT)
+        new_height = max(new_height, HALF_HEIGHT)
+
+        current_width = self.width()
+        self.resize(current_width, new_height)
+
+        # Ensure window stays within screen bounds
+        if self.pos().x() + current_width > screen_geo.width():
+            self.move(screen_geo.width() - current_width - 10, self.pos().y())
+        if self.pos().y() + new_height > screen_geo.height():
+            self.move(self.pos().x(), max(0, screen_geo.height() - new_height))
+
+    def showEvent(self, event):
+        """Ensure screen change signal is connected when window is shown"""
+        super().showEvent(event)
+        window_handle = self.windowHandle()
+        if window_handle:
+            try:
+                window_handle.screenChanged.disconnect(self._on_screen_changed)
+            except:
+                pass
+            window_handle.screenChanged.connect(self._on_screen_changed)
 
     def pathcheck(self):
         home_dir = str(Path.home())
@@ -5046,6 +5095,22 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         source_path = os.path.join(path_scr, f"{title_raw}.md")
         if not os.path.exists(source_path):
             return
+
+        # Check file modification time to avoid redundant backups
+        try:
+            current_mtime = os.path.getmtime(source_path)
+            current_size = os.path.getsize(source_path)
+            current_meta = (source_path, current_mtime, current_size)
+
+            # Skip backup if file hasn't changed since last backup
+            if self._last_insp_backup_meta == current_meta:
+                return
+
+            # Update metadata record
+            self._last_insp_backup_meta = current_meta
+        except Exception:
+            return
+
         try:
             with open(source_path, 'r', encoding='utf-8') as fp:
                 content = fp.read()
@@ -12554,7 +12619,7 @@ Keywords.
                                             color: #FFFFFF''')
 
     def compact_mode_on(self):
-        QUARTER_WEIGHT = int(self.screen().availableGeometry().width() * 0.3)
+        QUARTER_WEIGHT = int(self.screen().availableGeometry().width() * 0.25)  # 1/4 screen width
         HALF_WEIGHT = int(self.screen().availableGeometry().width() / 2)
         SCREEN_WEIGHT = int(self.screen().availableGeometry().width())
         DE_HEIGHT = int(self.screen().availableGeometry().height())
@@ -15088,30 +15153,44 @@ Keywords.
         de_height = int(screen_geom.height())
         target_y = min(max(self.pos().y(), screen_geom.y()), screen_geom.y() + screen_geom.height() - de_height)
 
-        # Read stored width (fallback to half screen)
-        win_old_width = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read()
-        try:
-            stored_width = int(win_old_width)
-        except Exception:
-            stored_width = int(screen_width / 2)
-
-        max_width = screen_width
+        # Determine mode key for caching
         if action10.isChecked():
-            preferred_width = int(max_width / 4)
+            mode_key = "compact"
+            default_width = int(screen_width / 4)
         elif action7.isChecked():
-            preferred_width = int(max_width * 2 / 3)
+            mode_key = "realtime"
+            default_width = int(screen_width * 3 / 4)
         else:
-            preferred_width = int(max_width / 2)
+            mode_key = "normal"
+            default_width = int(screen_width / 2)
 
-        # If stored width is out of sync with current screen, fall back to current preference
-        if stored_width <= 0 or stored_width > max_width or stored_width < self.new_width:
-            stored_width = preferred_width
-        elif stored_width < preferred_width * 0.5 or stored_width > preferred_width * 1.5:
-            stored_width = preferred_width
+        # Try to read cached width for current mode and screen size
+        try:
+            cache_data = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read().strip()
+            if cache_data:
+                parts = cache_data.split('|')
+                if len(parts) == 3:
+                    cached_mode, cached_screen, cached_width = parts
+                    # Use cached width if mode and screen size match
+                    if cached_mode == mode_key and int(cached_screen) == screen_width:
+                        target_width_open = int(cached_width)
+                    else:
+                        target_width_open = default_width
+                else:
+                    target_width_open = default_width
+            else:
+                target_width_open = default_width
+        except:
+            target_width_open = default_width
 
         if self.i % 2 == 1:
-            target_width = min(max_width, max(self.new_width, max(preferred_width, stored_width)))
+            # Opening: expand to target width based on current mode
+            target_width = target_width_open
             target_x = screen_right - target_width - 3
+
+            # Disable updates during initial setup
+            self.setUpdatesEnabled(False)
+
             btna4.setChecked(True)
             self.btn_00.setStyleSheet('''
                                 border: 1px outset grey;
@@ -15120,11 +15199,36 @@ Keywords.
                                 padding: 1px;
                                 color: #FFFFFF''')
             self.tab_bar.setVisible(True)
-            self.resize(int(target_width), de_height)
+
+            # Set the correct WIDTH at current position (off-screen right)
+            # This prevents Qt from resizing during animation
+            current_x = self.pos().x()
+            start_geometry = QRect(current_x, target_y, int(target_width), de_height)
+            self.setGeometry(start_geometry)
+
+            # Re-enable updates - now window has correct size
+            self.setUpdatesEnabled(True)
+
+            # Save cache with mode and screen info
+            cache_str = f"{mode_key}|{screen_width}|{target_width}"
             with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
-                f0.write(str(target_width))
+                f0.write(cache_str)
+
+            # Delay animation start to ensure layout is fully calculated
+            # This prevents flicker by giving Qt time to complete internal layout
+            def start_slide_animation():
+                animation = QPropertyAnimation(self, b"geometry", self)
+                animation.setDuration(250)
+                end_geometry = QRect(target_x, target_y, int(target_width), de_height)
+                animation.setEndValue(end_geometry)
+                animation.start()
+
+            QTimer.singleShot(100, start_slide_animation)
         else:
-            target_x = screen_right - self.new_width - 3
+            # Closing: collapse to minimal width
+            target_width = self.new_width
+            target_x = screen_right - target_width - 3
+
             btna4.setChecked(False)
             self.btn_00.setStyleSheet('''
                                 border: 1px outset grey;
@@ -15133,12 +15237,16 @@ Keywords.
                                 padding: 1px;
                                 color: #000000''')
             self.tab_bar.setVisible(False)
-            with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
-                f0.write(str(self.width()))
-            self.resize(self.new_width, de_height)
 
-        # animate and toggle self.i in move_window
-        self.move_window(target_x, target_y)
+            # Animate both position AND size change together
+            animation = QPropertyAnimation(self, b"geometry", self)
+            animation.setDuration(250)
+            end_geometry = QRect(target_x, target_y, target_width, de_height)
+            animation.setEndValue(end_geometry)
+            animation.start()
+
+        # Toggle state
+        self.i += 1
 
     def cleanlinebreak(self, a):  # 设置清除断行的基本代码块
         for i in range(10):
@@ -16411,14 +16519,47 @@ Keywords.
 
     def activate(self):  # 设置窗口显示
         SCREEN_WEIGHT = int(self.screen().availableGeometry().width())
-        WINDOW_WEIGHT = int(self.width())
         DE_HEIGHT = int(self.screen().availableGeometry().height())
-        win_old_width = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read()
+
+        # Determine mode key
+        if action10.isChecked():
+            mode_key = "compact"
+            default_width = int(SCREEN_WEIGHT / 4)
+        elif action7.isChecked():
+            mode_key = "realtime"
+            default_width = int(SCREEN_WEIGHT * 3 / 4)
+        else:
+            mode_key = "normal"
+            default_width = int(SCREEN_WEIGHT / 2)
+
+        # Try to read cached width for current mode and screen size
+        try:
+            cache_data = codecs.open(BasePath + 'win_width.txt', 'r', encoding='utf-8').read().strip()
+            if cache_data:
+                parts = cache_data.split('|')
+                if len(parts) == 3:
+                    cached_mode, cached_screen, cached_width = parts
+                    # Use cached width if mode and screen size match
+                    if cached_mode == mode_key and int(cached_screen) == SCREEN_WEIGHT:
+                        target_width = int(cached_width)
+                    else:
+                        target_width = default_width
+                else:
+                    target_width = default_width
+            else:
+                target_width = default_width
+        except:
+            target_width = default_width
+
+        # Calculate target position
+        target_x = SCREEN_WEIGHT - target_width - 3
+        target_y = self.pos().y()
+
+        # Disable updates during setup
+        self.setUpdatesEnabled(False)
+
+        # Set everything BEFORE showing window
         self.tab_bar.setVisible(True)
-        self.resize(int(win_old_width), DE_HEIGHT)
-        self.show()
-        if self.pos().x() + WINDOW_WEIGHT >= SCREEN_WEIGHT:
-            self.move_window(SCREEN_WEIGHT - int(win_old_width) - 3, self.pos().y())
         btna4.setChecked(True)
         self.btn_00.setStyleSheet('''
                     border: 1px outset grey;
@@ -16426,6 +16567,37 @@ Keywords.
                     border-radius: 4px;
                     padding: 1px;
                     color: #FFFFFF''')
+
+        # Set the correct WIDTH at off-screen position (right edge)
+        start_x = SCREEN_WEIGHT - 10
+        start_geometry = QRect(start_x, target_y, target_width, DE_HEIGHT)
+        self.setGeometry(start_geometry)
+
+        # Re-enable updates
+        self.setUpdatesEnabled(True)
+
+        # Save cache with mode and screen info
+        cache_str = f"{mode_key}|{SCREEN_WEIGHT}|{target_width}"
+        with open(BasePath + 'win_width.txt', 'w', encoding='utf-8') as f0:
+            f0.write(cache_str)
+
+        # Show window first (at right edge with correct width)
+        self.show()
+
+        # Update self.i to indicate window is now expanded
+        # If i is even (collapsed), make it odd (expanded)
+        #if self.i % 2 == 0:
+        self.i += 1
+
+        # Delay animation to ensure layout is complete, then slide in
+        def start_slide_animation():
+            animation = QPropertyAnimation(self, b"geometry", self)
+            animation.setDuration(250)
+            end_geometry = QRect(target_x, target_y, target_width, DE_HEIGHT)
+            animation.setEndValue(end_geometry)
+            animation.start()
+
+        QTimer.singleShot(100, start_slide_animation)
 
     def cancel(self):  # 设置取消键的功能
         self.close()
