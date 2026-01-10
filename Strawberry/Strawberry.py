@@ -313,7 +313,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.10', self)
+        lbl1 = QLabel('Version 2.0.11', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -776,7 +776,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.10', self)
+        self.lbl = QLabel('Current Version: v2.0.11', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -3045,7 +3045,23 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         if not screen:
             return
 
+        # Use QTimer to defer reading screen geometry - this ensures we get the LATEST screen data
+        # 100ms delay to ensure macOS has fully updated screen geometry after display change
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(100, lambda: self._handle_screen_change(screen))
+
+    def _handle_screen_change(self, screen):
+        """Handle screen change with proper geometry calculation"""
+        if not screen:
+            return
+
+        # NOW get the screen geometry (after 100ms delay)
         screen_geo = screen.availableGeometry()
+
+        # Debug: Print screen change information
+        # print(f"\n=== Screen Changed ===")
+        # print(f"Screen: {screen.name()}")
+        # print(f"Available Geometry: {screen_geo.width()}x{screen_geo.height()} at ({screen_geo.x()}, {screen_geo.y()})")
 
         # Recalculate size limits based on new screen
         MOST_WEIGHT = int(screen_geo.width() * 0.75)
@@ -3053,22 +3069,200 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         HALF_HEIGHT = int(screen_geo.height() * 0.5)
         BIGGIST_HEIGHT = int(screen_geo.height())
 
-        # Update minimum and maximum sizes
-        self.setMinimumSize(MINI_WEIGHT, HALF_HEIGHT)
-        self.setMaximumSize(MOST_WEIGHT, BIGGIST_HEIGHT)
-
-        # Adjust current height to fit new screen, keeping width unchanged
-        new_height = min(self.height(), BIGGIST_HEIGHT)
-        new_height = max(new_height, HALF_HEIGHT)
-
+        # Get current dimensions
         current_width = self.width()
-        self.resize(current_width, new_height)
+        current_height = self.height()
+        # print(f"Current window size: {current_width}x{current_height}")
 
-        # Ensure window stays within screen bounds
-        if self.pos().x() + current_width > screen_geo.width():
-            self.move(screen_geo.width() - current_width - 10, self.pos().y())
-        if self.pos().y() + new_height > screen_geo.height():
-            self.move(self.pos().x(), max(0, screen_geo.height() - new_height))
+        # Check if window is currently in collapsed state by checking if tab_bar is visible
+        # tab_bar is hidden when window is collapsed (only btn_00 visible)
+        is_collapsed = not self.tab_bar.isVisible()
+
+        # print(f"Window is currently {'COLLAPSED' if is_collapsed else 'EXPANDED'} (tab_bar visible: {self.tab_bar.isVisible()})")
+
+        # Calculate screen boundaries
+        screen_left = screen_geo.x()
+        screen_top = screen_geo.y()
+        screen_right = screen_left + screen_geo.width()
+        screen_bottom = screen_top + screen_geo.height()
+
+        # Calculate new height (always full screen height)
+        new_height = BIGGIST_HEIGHT
+
+        if is_collapsed:
+            # ===== 折叠状态：btn_00 应该贴在屏幕最右侧中间 =====
+            # 窗口很窄(只有btn_00可见)，把它放在屏幕右边缘
+            # print("Mode: COLLAPSED - positioning btn_00 at screen right edge")
+
+            # 保持最小宽度约束，允许窄宽度
+            self.setMinimumSize(1, HALF_HEIGHT)
+            self.setMaximumSize(MOST_WEIGHT, BIGGIST_HEIGHT)
+
+            # 使用self.new_width (10) 作为折叠时的宽度，与初始化和pin_a_tab逻辑一致
+            collapsed_width = self.new_width
+
+            # 计算位置：窗口左边缘 = 屏幕右边缘 - 窗口宽度
+            # 这样窗口右边缘就贴在屏幕右边缘
+            target_x = screen_right - collapsed_width
+            target_y = screen_top
+
+            # print(f"Target position: ({target_x}, {target_y})")
+            # print(f"Target size: {collapsed_width}x{new_height}")
+
+            # 使用setGeometry一次性设置位置和大小，更可靠
+            self.setGeometry(target_x, target_y, collapsed_width, new_height)
+
+        else:
+            # ===== 展开状态：窗口右边缘应该与屏幕右边缘对齐 =====
+            # print("Mode: EXPANDED - aligning window right edge to screen right edge")
+
+            # 应用正常约束
+            self.setMinimumSize(MINI_WEIGHT, HALF_HEIGHT)
+            self.setMaximumSize(MOST_WEIGHT, BIGGIST_HEIGHT)
+
+            # 根据新屏幕尺寸重新计算窗口宽度
+            # 实时检测当前选中的action来确定mode（与 _toggle_pin_tab 逻辑一致）
+            if action10.isChecked():
+                mode_key = "compact"
+                target_width = int(screen_geo.width() / 4)
+            elif action7.isChecked():
+                mode_key = "realtime"
+                target_width = int(screen_geo.width() * 3 / 4)
+            else:
+                mode_key = "normal"
+                target_width = int(screen_geo.width() / 2)
+
+            # print(f"Using mode: {mode_key} (action10: {action10.isChecked()}, action7: {action7.isChecked()})")
+
+            # 应用最小/最大宽度约束
+            target_width = max(MINI_WEIGHT, min(target_width, MOST_WEIGHT))
+
+            # print(f"Calculated target width for mode {mode_key}: {target_width}")
+
+            # 计算位置：窗口左边缘 = 屏幕右边缘 - 窗口宽度
+            # 这样窗口右边缘就贴在屏幕右边缘
+            target_x = screen_right - target_width
+            target_y = screen_top
+
+            # print(f"Target position: ({target_x}, {target_y})")
+            # print(f"Target size: {target_width}x{new_height}")
+
+            # 使用setGeometry一次性设置位置和大小，更可靠
+            self.setGeometry(target_x, target_y, target_width, new_height)
+
+        # 强制处理事件确保更新
+        from PyQt6.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
+
+        # 再次强制设置位置，确保窗口真的移动到了目标位置
+        # 窗口右边缘应该完全贴在屏幕右边缘
+        final_target_x = screen_right - self.width()
+
+        if self.pos().x() != final_target_x:
+            # print(f"Position mismatch detected, forcing move to x={final_target_x}")
+            self.move(final_target_x, screen_top)
+            QCoreApplication.processEvents()
+
+        # 验证最终位置
+        # final_pos = self.pos()
+        # final_size = self.size()
+        # print(f"Final window position: ({final_pos.x()}, {final_pos.y()})")
+        # print(f"Final window size: {final_size.width()}x{final_size.height()}")
+        # print(f"Window right edge at: x={final_pos.x() + final_size.width()} (screen right edge: {screen_right})")
+        # print(f"Distance from right edge: {screen_right - (final_pos.x() + final_size.width())}px")
+
+        # Debug: btn_00 位置
+        # btn_pos = self.btn_00.pos()
+        # btn_global = self.btn_00.mapToGlobal(btn_pos)
+        # print(f"btn_00 position relative to window: ({btn_pos.x()}, {btn_pos.y()})")
+        # print(f"btn_00 global position: ({btn_global.x()}, {btn_global.y()})")
+        # print(f"btn_00 size: {self.btn_00.width()}x{self.btn_00.height()}")
+        # print(f"=== Screen Change Complete ===\n")
+
+    def _apply_screen_resize(self, target_width, target_height, screen_geo, was_collapsed):
+        """Helper method to apply resize with proper bounds checking"""
+        # print(f"Applying resize to: {target_width}x{target_height} (was_collapsed={was_collapsed})")
+
+        # Apply the resize
+        self.resize(target_width, target_height)
+
+        # Force process pending events to ensure resize takes effect
+        from PyQt6.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
+
+        actual_size = self.size()
+        # print(f"Actual window size AFTER resize: {actual_size.width()}x{actual_size.height()}")
+        # if actual_size.width() != target_width:
+        #     print(f"WARNING: Actual width ({actual_size.width()}) != target width ({target_width})")
+
+        # Ensure window stays within screen bounds (respect x/y offsets)
+        left = screen_geo.x()
+        top = screen_geo.y()
+        right = left + screen_geo.width()
+        bottom = top + screen_geo.height()
+
+        new_x = self.pos().x()
+        new_y = self.pos().y()
+
+        # Check if window is in collapsed/pinned state (very narrow width)
+        # If collapsed, position at screen edge (x = right - 10)
+        # If expanded, position so right edge is near screen edge (x = right - width - 3)
+        # IMPORTANT: Use actual window width, not target width, in case resize was constrained
+        actual_width = self.width()
+        COLLAPSED_WIDTH_THRESHOLD = 100  # Consider widths < 100px as "collapsed"
+        is_collapsed = actual_width < COLLAPSED_WIDTH_THRESHOLD
+
+        if is_collapsed:
+            # Window is collapsed (only btn_00 visible) - pin it to the right edge
+            # This ensures btn_00 stays at the screen right edge for easy access
+            new_x = right - 10
+            # print(f"Window is collapsed (actual_width={actual_width}), pinning to right edge at x={new_x}")
+        else:
+            # Window is expanded - DO NOT force to right edge
+            # btn_00 is at the LEFT side of the window (x=0), so forcing window right
+            # would move btn_00 to the left side of screen, which is wrong!
+            # Instead, keep current position and only adjust if outside screen bounds
+            # print(f"Window is expanded (actual_width={actual_width}), checking bounds only")
+
+            # Only adjust if window extends beyond screen bounds
+            if new_x + actual_width > right:
+                # Window right edge is off-screen, pull it back
+                new_x = right - actual_width - 3
+                # print(f"  Adjusting: window extends beyond right edge, moving to x={new_x}")
+            elif new_x < left:
+                # Window left edge is off-screen, push it right
+                new_x = left
+                # print(f"  Adjusting: window extends beyond left edge, moving to x={new_x}")
+            # else:
+                # print(f"  No adjustment needed, keeping position x={new_x}")
+
+        # Ensure vertical position is within bounds
+        if new_y + target_height > bottom:
+            new_y = bottom - target_height
+        if new_y < top:
+            new_y = top
+
+        if new_x != self.pos().x() or new_y != self.pos().y():
+            # print(f"Moving window to: ({new_x}, {new_y})")
+            self.move(new_x, new_y)
+
+        # Verify final position after move
+        from PyQt6.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
+        # final_pos = self.pos()
+        # final_geometry = self.geometry()
+        # print(f"Final window position: ({final_pos.x()}, {final_pos.y()})")
+        # print(f"Final window geometry: {final_geometry.x()}, {final_geometry.y()}, {final_geometry.width()}x{final_geometry.height()}")
+        # print(f"Window right edge at: x={final_pos.x() + self.width()} (screen right edge: {right})")
+        # print(f"Distance from right edge: {right - (final_pos.x() + self.width())}px")
+
+        # Debug: Check btn_00 position
+        # btn_pos = self.btn_00.pos()
+        # btn_global = self.btn_00.mapToGlobal(btn_pos)
+        # print(f"btn_00 position relative to window: ({btn_pos.x()}, {btn_pos.y()})")
+        # print(f"btn_00 global position: ({btn_global.x()}, {btn_global.y()})")
+        # print(f"btn_00 size: {self.btn_00.width()}x{self.btn_00.height()}")
+        # print(f"=== Screen Change Complete ===\n")
 
     def showEvent(self, event):
         """Ensure screen change signal is connected when window is shown"""
