@@ -57,6 +57,13 @@ app.setQuitOnLastWindowClosed(False)
 BasePath = '/Applications/Strawberry.app/Contents/Resources/'
 #BasePath = ''  # test
 
+def reset_newarchive_path():
+    with open(BasePath + 'newarchivepath.txt', 'w', encoding='utf-8') as f0:
+        f0.write('')
+
+
+reset_newarchive_path()
+
 INSP_BACKUP_LIMIT_FILE = os.path.join(BasePath, 'insp_backup_limit.txt')
 DEFAULT_INSP_BACKUP_LIMIT = 50
 
@@ -313,7 +320,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.11', self)
+        lbl1 = QLabel('Version 2.0.12', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -776,7 +783,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.11', self)
+        self.lbl = QLabel('Current Version: v2.0.12', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -5255,19 +5262,48 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
         if path1 == '':
             return
-        current_pos = self.textii2.textCursor().position()
+        cursor = self.textii2.textCursor()
+        current_pos = cursor.position()
+        vbar = self.textii2.verticalScrollBar()
+        old_scroll_value = vbar.value()
+        old_scroll_max = vbar.maximum()
+        old_viewport_height = self.textii2.viewport().height()
+        old_cursor_rect = self.textii2.cursorRect(cursor)
+        old_cursor_top = old_cursor_rect.top() if old_cursor_rect.isValid() else None
         tarname1 = str(self.leii1.text()) + ".md"
         fulldir1 = os.path.join(path1, tarname1)
         composed = self._compose_inspiration_file(body_text)
         with open(fulldir1, 'w', encoding='utf-8') as f1:
             f1.write(composed)
+        prev_suppress = getattr(self, '_suppress_cursor_capture', False)
+        self._suppress_cursor_capture = True
         self._show_inspiration_content(composed)
         body_len = len(self.textii2.toPlainText())
         restore_pos = max(0, min(body_len, current_pos))
         cursor = self.textii2.textCursor()
         cursor.setPosition(restore_pos)
         self.textii2.setTextCursor(cursor)
-        self.textii2.ensureCursorVisible()
+        def _restore_scroll():
+            vbar = self.textii2.verticalScrollBar()
+            new_scroll_max = vbar.maximum()
+            if new_scroll_max <= 0:
+                self._suppress_cursor_capture = prev_suppress
+                return
+            cursor = self.textii2.textCursor()
+            cursor_rect = self.textii2.cursorRect(cursor)
+            if cursor_rect.isValid():
+                doc_y = vbar.value() + cursor_rect.top()
+                if old_cursor_top is not None and old_viewport_height > 0:
+                    target = int(doc_y - old_cursor_top)
+                elif old_scroll_max > 0:
+                    target = min(new_scroll_max, old_scroll_value)
+                else:
+                    desired_y = int(old_viewport_height * 0.7) if old_viewport_height > 0 else 0
+                    target = int(doc_y - desired_y)
+                vbar.setValue(max(0, min(new_scroll_max, target)))
+            self._suppress_cursor_capture = prev_suppress
+
+        QTimer.singleShot(0, _restore_scroll)
 
     def _start_inspiration_autosave(self):
         if self.insp_backup_timer:
@@ -6582,6 +6618,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         if path1 != '':
             file_name, ok = QFileDialog.getOpenFileName(self, "Open File", path1, "Markdown Files (*.md)")
             if file_name != '':
+                reset_newarchive_path()
                 if path1 in file_name:
                     contend = codecs.open(file_name, 'r', encoding='utf-8').read()
 
@@ -7163,9 +7200,6 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                                 end run'''
                             self.notify(CMD, "Strawberry: Your Literature Collector",
                                         f"The target folder is not named so it is by default moved to the 'NEW FOLDER'.")
-                    with open(BasePath + 'newarchivepath.txt', 'w', encoding='utf-8') as f0:
-                        f0.write('')
-
             path2 = codecs.open(BasePath + 'path_aut.txt', 'r', encoding='utf-8').read()
             if path2 == '':
                 self.text.setPlainText('Some directory is empty. Please go to preferences and check!')
@@ -7455,6 +7489,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     color: #FFFFFF''')
             self.btnmain2.setText('Added')
             self.le1.setEnabled(False)
+            reset_newarchive_path()
 
     def clearabv(self):
         if self.text.toPlainText() != '':
@@ -7660,6 +7695,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
             self.web_t8.setVisible(True)
             self.read_t3.setVisible(False)
             self.read_t8.setVisible(False)
+        reset_newarchive_path()
 
     def addprob(self):
         if self.btn_ex11.text() != 'Added and renewed list' and self.le1.text() != '':
@@ -9853,10 +9889,15 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                     pattern02 = re.compile(r'TI  - (.*?)\n')
                     result0 = pattern02.findall(ris_list[i])
                     title2 = ''.join(result0)
-                    tarnameb = self.cleaninput(str(title2).replace('TI  - ', '')) + '.md'
-                    fulldirb = os.path.join(fulldira, tarnameb)
-                    with open(fulldirb, 'a', encoding='utf-8') as f2:
-                        f2.write('')
+                    if title2 == '':
+                        pattern03 = re.compile(r'T1  - (.*?)\n')
+                        result0 = pattern03.findall(ris_list[i])
+                        title2 = ''.join(result0)
+                    if title2 != '':
+                        tarnameb = self.cleaninput(str(title2).replace('TI  - ', '').replace('T1  - ', '')) + '.md'
+                        fulldirb = os.path.join(fulldira, tarnameb)
+                        with open(fulldirb, 'a', encoding='utf-8') as f2:
+                            f2.write('')
 
                 ris_each = ris_list[i].split('\n')
                 for m in range(len(ris_each)):
@@ -9866,6 +9907,10 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                             f2.write(part1 + '\n')
                     if 'ST  - ' not in ris_list[i] and 'TI  - ' in ris_each[m]:
                         part1 = '# Metadata\n- Title: ' + self.cleaninput(str(ris_each[m]).replace('TI  - ', ''))
+                        with open(fulldirb, 'a', encoding='utf-8') as f2:
+                            f2.write(part1 + '\n')
+                    if 'ST  - ' not in ris_list[i] and 'TI  - ' not in ris_list[i] and 'T1  - ' in ris_each[m]:
+                        part1 = '# Metadata\n- Title: ' + self.cleaninput(str(ris_each[m]).replace('T1  - ', ''))
                         with open(fulldirb, 'a', encoding='utf-8') as f2:
                             f2.write(part1 + '\n')
                 for n in range(len(ris_each)):
@@ -9887,7 +9932,11 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         part4 = '\n- Publication: ' + str(ris_each[pp]).replace('JF  - ', '')
                         with open(fulldirb, 'a', encoding='utf-8') as f2:
                             f2.write(part4 + '\n')
-                    if 'T2  - ' not in ris_list[i] and 'JF  - ' not in ris_list[i] and 'PB  - ' in ris_each[pp]:
+                    if 'T2  - ' not in ris_list[i] and 'JF  - ' not in ris_list[i] and 'JO  - ' in ris_each[pp]:
+                        part4 = '\n- Publication: ' + str(ris_each[pp]).replace('JO  - ', '')
+                        with open(fulldirb, 'a', encoding='utf-8') as f2:
+                            f2.write(part4 + '\n')
+                    if 'T2  - ' not in ris_list[i] and 'JF  - ' not in ris_list[i] and 'JO  - ' not in ris_list[i] and 'PB  - ' in ris_each[pp]:
                         part4 = '\n- Publication: ' + str(ris_each[pp]).replace('PB  - ', '')
                         with open(fulldirb, 'a', encoding='utf-8') as f2:
                             f2.write(part4 + '\n')
@@ -11586,6 +11635,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.leiinote.clear()
         self.leii2.setPlaceholderText('Number (blank = auto mode)')
         self._cached_title_key = ''
+        reset_newarchive_path()
 
     def save1(self):
         oldv = self.text.verticalScrollBar().value()
