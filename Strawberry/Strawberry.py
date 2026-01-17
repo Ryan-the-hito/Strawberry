@@ -5267,41 +5267,31 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         vbar = self.textii2.verticalScrollBar()
         old_scroll_value = vbar.value()
         old_scroll_max = vbar.maximum()
-        old_viewport_height = self.textii2.viewport().height()
-        old_cursor_rect = self.textii2.cursorRect(cursor)
-        old_cursor_top = old_cursor_rect.top() if old_cursor_rect.isValid() else None
         tarname1 = str(self.leii1.text()) + ".md"
         fulldir1 = os.path.join(path1, tarname1)
         composed = self._compose_inspiration_file(body_text)
         with open(fulldir1, 'w', encoding='utf-8') as f1:
             f1.write(composed)
         prev_suppress = getattr(self, '_suppress_cursor_capture', False)
-        self._suppress_cursor_capture = True
+        if not prev_suppress:
+            self._suppress_cursor_capture = True
         self._show_inspiration_content(composed)
         body_len = len(self.textii2.toPlainText())
         restore_pos = max(0, min(body_len, current_pos))
         cursor = self.textii2.textCursor()
         cursor.setPosition(restore_pos)
         self.textii2.setTextCursor(cursor)
+        if not prev_suppress:
+            self._suppress_cursor_capture = False
         def _restore_scroll():
             vbar = self.textii2.verticalScrollBar()
             new_scroll_max = vbar.maximum()
             if new_scroll_max <= 0:
-                self._suppress_cursor_capture = prev_suppress
                 return
-            cursor = self.textii2.textCursor()
-            cursor_rect = self.textii2.cursorRect(cursor)
-            if cursor_rect.isValid():
-                doc_y = vbar.value() + cursor_rect.top()
-                if old_cursor_top is not None and old_viewport_height > 0:
-                    target = int(doc_y - old_cursor_top)
-                elif old_scroll_max > 0:
-                    target = min(new_scroll_max, old_scroll_value)
-                else:
-                    desired_y = int(old_viewport_height * 0.7) if old_viewport_height > 0 else 0
-                    target = int(doc_y - desired_y)
-                vbar.setValue(max(0, min(new_scroll_max, target)))
-            self._suppress_cursor_capture = prev_suppress
+            target = old_scroll_value
+            if old_scroll_max > 0 and old_scroll_value >= old_scroll_max - 2:
+                target = new_scroll_max
+            vbar.setValue(max(0, min(new_scroll_max, target)))
 
         QTimer.singleShot(0, _restore_scroll)
 
