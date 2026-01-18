@@ -320,7 +320,7 @@ class window_about(QWidget):  # 增加说明页面(About)
         widg2.setLayout(blay2)
 
         widg3 = QWidget()
-        lbl1 = QLabel('Version 2.0.12', self)
+        lbl1 = QLabel('Version 2.0.13', self)
         blay3 = QHBoxLayout()
         blay3.setContentsMargins(0, 0, 0, 0)
         blay3.addStretch()
@@ -783,7 +783,7 @@ class window_update(QWidget):  # 增加更新页面（Check for Updates）
 
     def initUI(self):  # 说明页面内信息
 
-        self.lbl = QLabel('Current Version: v2.0.12', self)
+        self.lbl = QLabel('Current Version: v2.0.13', self)
         self.lbl.move(30, 45)
 
         lbl0 = QLabel('Download Update:', self)
@@ -982,8 +982,8 @@ class CustomDialog_list_pro(QDialog):  # problem
 
     def initUI(self):
         self.setUpMainWindow()
-        self.center()
         self.resize(400, 400)
+        self.center()
         self.setFocus()
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
@@ -2848,6 +2848,342 @@ class CustomDialog_edit_reference(QDialog):  # cite1
         self.warn_lbl.setVisible(show_in)
         if show_bib:
             self.load_bib_and_inline()
+
+
+class CustomDialog_add_reference(QDialog):  # cite add
+    def __init__(self, parent=None):
+        super().__init__()  # 不传parent，使窗口坐标基于屏幕而非主窗口
+        self.parent_window = parent  # 仍保存parent引用供后续方法使用
+        self.ref_conference_mode = False
+        self.initUI()
+
+    def initUI(self):
+        self.setUpMainWindow()
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.resize(400, 400)
+        self.center()
+        self.setFocus()
+
+    def setUpMainWindow(self):
+        self.tabs = QTabWidget(self)
+        self.tabs.setTabPosition(QTabWidget.TabPosition.North)
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+
+        self.tab_existing = QWidget()
+        self.tab_manual = QWidget()
+        self.tabs.addTab(self.tab_existing, 'From Strawberry')
+        self.tabs.addTab(self.tab_manual, 'Manual Input')
+
+        existing_layout = QVBoxLayout()
+        existing_layout.setContentsMargins(20, 20, 20, 20)
+        self.btn_existing = QPushButton('Import from existing references', self)
+        self.btn_existing.clicked.connect(self._use_existing_reference)
+        self.btn_existing.setMaximumHeight(20)
+        existing_layout.addStretch()
+        existing_layout.addWidget(self.btn_existing)
+        existing_layout.addStretch()
+        self.tab_existing.setLayout(existing_layout)
+
+        self._build_manual_tab()
+
+        btn_close = QPushButton('Cancel', self)
+        btn_close.clicked.connect(self.close)
+        btn_close.setMaximumHeight(24)
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 0, 0, 0)
+        #btn_row.addStretch()
+        btn_row.addWidget(btn_close)
+
+        w3 = QWidget()
+        blay3 = QVBoxLayout()
+        blay3.setContentsMargins(20, 20, 20, 20)
+        blay3.addWidget(self.tabs)
+        blay3.addLayout(btn_row)
+        w3.setLayout(blay3)
+        w3.setObjectName("Main")
+
+        blayend = QHBoxLayout()
+        blayend.setContentsMargins(0, 0, 0, 0)
+        blayend.addWidget(w3)
+        self.setLayout(blayend)
+
+        # main_layout = QVBoxLayout()
+        # main_layout.setContentsMargins(20, 20, 20, 20)
+        # main_layout.addWidget(self.tabs)
+        # main_layout.addLayout(btn_row)
+        # self.setLayout(main_layout)
+
+    def _build_manual_tab(self):
+        self.ref_upper = QWidget()
+
+        self.ref_read_t1 = QWidget()
+        lbl1 = QLabel('Title:', self)
+        self.ref_le1 = QLineEdit(self)
+        self.ref_le1.setPlaceholderText('Enter your text')
+        b1 = QHBoxLayout()
+        b1.setContentsMargins(0, 0, 0, 0)
+        b1.addWidget(lbl1)
+        b1.addWidget(self.ref_le1)
+        self.ref_read_t1.setLayout(b1)
+
+        self.ref_read_t2 = QWidget()
+        self.ref_lblread_2 = QLabel('Authors:', self)
+        self.ref_le2 = QLineEdit(self)
+        self.ref_le2.setPlaceholderText('Use 、or + if there are many and % after translators')
+        b2 = QHBoxLayout()
+        b2.setContentsMargins(0, 0, 0, 0)
+        b2.addWidget(self.ref_lblread_2)
+        b2.addWidget(self.ref_le2)
+        self.ref_read_t2.setLayout(b2)
+
+        self.ref_read_t7 = QWidget()
+        lbl7 = QLabel('Institutes:', self)
+        self.ref_le7 = QLineEdit(self)
+        self.ref_le7.setPlaceholderText('Use 、or + if there are many')
+        b7 = QHBoxLayout()
+        b7.setContentsMargins(0, 0, 0, 0)
+        b7.addWidget(lbl7)
+        b7.addWidget(self.ref_le7)
+        self.ref_read_t7.setLayout(b7)
+
+        self.ref_read_t3 = QWidget()
+        lbl3 = QLabel('Publication:', self)
+        self.ref_le3 = QLineEdit(self)
+        self.ref_le3.setPlaceholderText('Enter your text')
+        lbl3_1 = QLabel('Press:', self)
+        self.ref_le3_1 = QLineEdit(self)
+        self.ref_le3_1.setPlaceholderText('Enter your text')
+        b3 = QHBoxLayout()
+        b3.setContentsMargins(0, 0, 0, 0)
+        b3.addWidget(lbl3)
+        b3.addWidget(self.ref_le3)
+        b3.addWidget(lbl3_1)
+        b3.addWidget(self.ref_le3_1)
+        self.ref_read_t3.setLayout(b3)
+
+        self.ref_web_t3 = QWidget()
+        lblweb3 = QLabel('URL:', self)
+        self.ref_leweb3 = QLineEdit(self)
+        self.ref_leweb3.setPlaceholderText('Enter your text')
+        ba3 = QHBoxLayout()
+        ba3.setContentsMargins(0, 0, 0, 0)
+        ba3.addWidget(lblweb3)
+        ba3.addWidget(self.ref_leweb3)
+        self.ref_web_t3.setLayout(ba3)
+        self.ref_web_t3.setVisible(False)
+
+        self.ref_read_t8 = QWidget()
+        self.ref_le8 = QLineEdit(self)
+        self.ref_le8.setPlaceholderText('Of a book?')
+        self.ref_le9 = QLineEdit(self)
+        self.ref_le9.setPlaceholderText('Of a chapter?')
+        self.ref_le10 = QLineEdit(self)
+        self.ref_le10.setPlaceholderText('Page range')
+        b8 = QHBoxLayout()
+        b8.setContentsMargins(0, 0, 0, 0)
+        b8.addWidget(self.ref_le8)
+        b8.addWidget(self.ref_le9)
+        b8.addWidget(self.ref_le10)
+        self.ref_read_t8.setLayout(b8)
+
+        self.ref_web_t8 = QWidget()
+        self.ref_leweb8 = QLineEdit(self)
+        self.ref_leweb8.setPlaceholderText('Conference?')
+        self.ref_leweb9 = QLineEdit(self)
+        self.ref_leweb9.setPlaceholderText('Host Institution?')
+        self.ref_leweb10 = QLineEdit(self)
+        self.ref_leweb10.setPlaceholderText('Place?')
+        ba8 = QHBoxLayout()
+        ba8.setContentsMargins(0, 0, 0, 0)
+        ba8.addWidget(self.ref_leweb8)
+        ba8.addWidget(self.ref_leweb9)
+        ba8.addWidget(self.ref_leweb10)
+        self.ref_web_t8.setLayout(ba8)
+        self.ref_web_t8.setVisible(False)
+
+        self.ref_read_t4 = QWidget()
+        lbl4 = QLabel('Year:', self)
+        self.ref_le4 = QLineEdit(self)
+        self.ref_le4.setPlaceholderText('Enter your text')
+        lbl4_1 = QLabel('Vol / Mon:', self)
+        self.ref_le4_1 = QLineEdit(self)
+        self.ref_le4_1.setPlaceholderText('Enter your text')
+        b4 = QHBoxLayout()
+        b4.setContentsMargins(0, 0, 0, 0)
+        b4.addWidget(lbl4)
+        b4.addWidget(self.ref_le4)
+        b4.addWidget(lbl4_1)
+        b4.addWidget(self.ref_le4_1)
+        self.ref_read_t4.setLayout(b4)
+
+        self.ref_read_t4_doi = QWidget()
+        lbldoi = QLabel('DOI:', self)
+        self.ref_le_doi = QLineEdit(self)
+        self.ref_le_doi.setPlaceholderText('10.xxxx/xxxxxx')
+        b4_doi = QHBoxLayout()
+        b4_doi.setContentsMargins(0, 0, 0, 0)
+        b4_doi.addWidget(lbldoi)
+        b4_doi.addWidget(self.ref_le_doi)
+        self.ref_read_t4_doi.setLayout(b4_doi)
+
+        self.ref_read_t4_isbn = QWidget()
+        lblisbn = QLabel('ISBN:', self)
+        self.ref_le_isbn = QLineEdit(self)
+        self.ref_le_isbn.setPlaceholderText('978-xxxxxx')
+        b4_isbn = QHBoxLayout()
+        b4_isbn.setContentsMargins(0, 0, 0, 0)
+        b4_isbn.addWidget(lblisbn)
+        b4_isbn.addWidget(self.ref_le_isbn)
+        self.ref_read_t4_isbn.setLayout(b4_isbn)
+
+        self.ref_read_t5 = QWidget()
+        lbl5 = QLabel('Tags:', self)
+        self.ref_le5 = QLineEdit(self)
+        self.ref_le5.setPlaceholderText('Use 、or + if there are many')
+        b5 = QHBoxLayout()
+        b5.setContentsMargins(0, 0, 0, 0)
+        b5.addWidget(lbl5)
+        b5.addWidget(self.ref_le5)
+        self.ref_read_t5.setLayout(b5)
+
+        upper_layout = QVBoxLayout()
+        upper_layout.setContentsMargins(0, 10, 0, 0)
+        upper_layout.addWidget(self.ref_read_t1)
+        upper_layout.addWidget(self.ref_read_t2)
+        upper_layout.addWidget(self.ref_read_t7)
+        upper_layout.addWidget(self.ref_read_t3)
+        upper_layout.addWidget(self.ref_web_t3)
+        upper_layout.addWidget(self.ref_read_t8)
+        upper_layout.addWidget(self.ref_web_t8)
+        upper_layout.addWidget(self.ref_read_t4)
+        upper_layout.addWidget(self.ref_read_t4_doi)
+        upper_layout.addWidget(self.ref_read_t4_isbn)
+        upper_layout.addWidget(self.ref_read_t5)
+        self.ref_upper.setLayout(upper_layout)
+
+        self.ref_btn_toggle = QPushButton('Web / Conferences', self)
+        self.ref_btn_toggle.clicked.connect(self._toggle_conference_mode)
+        self.ref_btn_toggle.setMaximumHeight(20)
+        self.ref_btn_add = QPushButton('Add', self)
+        self.ref_btn_add.clicked.connect(self._add_manual_reference)
+        self.ref_btn_add.setMaximumHeight(20)
+        self.ref_btn_ris = QPushButton('Import RIS', self)
+        self.ref_btn_ris.clicked.connect(self._import_ris)
+        self.ref_btn_ris.setMaximumHeight(20)
+        toggle_row = QWidget()
+        toggle_layout = QHBoxLayout()
+        toggle_layout.setContentsMargins(0, 0, 0, 0)
+        toggle_layout.addWidget(self.ref_btn_toggle)
+        toggle_layout.addWidget(self.ref_btn_add)
+        toggle_layout.addWidget(self.ref_btn_ris)
+        toggle_row.setLayout(toggle_layout)
+
+        # add_row = QWidget()
+        # add_layout = QHBoxLayout()
+        # add_layout.setContentsMargins(0, 0, 0, 0)
+        # add_layout.addStretch()
+        # add_layout.addWidget(self.ref_btn_add)
+        # add_row.setLayout(add_layout)
+
+        manual_layout = QVBoxLayout()
+        manual_layout.setContentsMargins(0, 0, 0, 0)
+        manual_layout.addWidget(self.ref_upper)
+        manual_layout.addWidget(toggle_row)
+        # manual_layout.addWidget(add_row)
+        self.tab_manual.setLayout(manual_layout)
+
+    def _collect_manual_data(self):
+        return {
+            'title': self.ref_le1.text(),
+            'authors': self.ref_le2.text(),
+            'institutes': self.ref_le7.text(),
+            'publication': self.ref_le3.text(),
+            'press': self.ref_le3_1.text(),
+            'year': self.ref_le4.text(),
+            'vol': self.ref_le4_1.text(),
+            'tags': self.ref_le5.text(),
+            'from_book': self.ref_le8.text(),
+            'chapter': self.ref_le9.text(),
+            'pages': self.ref_le10.text(),
+            'doi': self.ref_le_doi.text(),
+            'isbn': self.ref_le_isbn.text(),
+            'url': self.ref_leweb3.text(),
+            'conference': self.ref_leweb8.text(),
+            'host': self.ref_leweb9.text(),
+            'place': self.ref_leweb10.text(),
+            'web_mode': self.ref_conference_mode,
+        }
+
+    def _use_existing_reference(self):
+        if self.parent_window is None:
+            return
+        success = self.parent_window._addcit_select_file()
+        if success:
+            self.close()
+
+    def _import_ris(self):
+        if self.parent_window is None:
+            return
+        self.parent_window.openris()
+
+    def _add_manual_reference(self):
+        if self.parent_window is None:
+            return
+        data = self._collect_manual_data()
+        file_path = self.parent_window._create_temp_reference_file(data)
+        if file_path == '':
+            QMessageBox.information(self, 'Add reference', 'Title is required.')
+            return
+        success = self.parent_window._addcit_prepare(file_path)
+        if success:
+            self.close()
+
+    def _toggle_conference_mode(self):
+        self.ref_conference_mode = not self.ref_conference_mode
+        if self.ref_conference_mode:
+            self.ref_read_t3.setVisible(False)
+            self.ref_read_t8.setVisible(False)
+            self.ref_web_t3.setVisible(True)
+            self.ref_web_t8.setVisible(True)
+            self.ref_btn_toggle.setStyleSheet('''
+                border: 1px outset grey;
+                background-color: #0085FF;
+                border-radius: 4px;
+                padding: 1px;
+                color: #FFFFFF''')
+            self.ref_btn_toggle.setText('Web / Conferences ON')
+            self.ref_lblread_2.setText('Authors/Speakers:')
+        else:
+            self.ref_read_t3.setVisible(True)
+            self.ref_read_t8.setVisible(True)
+            self.ref_web_t3.setVisible(False)
+            self.ref_web_t8.setVisible(False)
+            self.ref_btn_toggle.setStyleSheet('''
+                border: 1px outset grey;
+                background-color: #FFFFFF;
+                border-radius: 4px;
+                padding: 1px;
+                color: #000000''')
+            self.ref_btn_toggle.setText('Web / Conferences')
+            self.ref_leweb3.clear()
+            self.ref_leweb8.clear()
+            self.ref_leweb9.clear()
+            self.ref_leweb10.clear()
+            self.ref_lblread_2.setText('Authors:')
+
+    def _on_tab_changed(self, index):
+        if index == 0:
+            self.resize(400, 415)
+        else:
+            self.resize(680, 415)
+        self.center()
+
+    def center(self):  # 设置窗口居中
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        x = (screen.width() - self.width()) // 2
+        y = (screen.height() - self.height()) // 2
+        self.move(x, y)
 
 
 class TimeoutException(Exception):
@@ -6542,7 +6878,7 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         self.btn_t7.clicked.connect(self.openris)
         self.btn_t7.setMaximumHeight(20)
         self.btn_t7.setMinimumWidth(50)
-        self.btn_t8 = QPushButton('Move to Articles', self)
+        self.btn_t8 = QPushButton('Move from RIS to Articles', self)
         self.btn_t8.clicked.connect(self.moveris)
         self.btn_t8.setMaximumHeight(20)
         self.btn_t8.setMinimumWidth(50)
@@ -6812,6 +7148,326 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
         a = a.replace('  ', ' ')
         a = a.lstrip(' ').rstrip(' ')
         return a
+
+    def _ensure_ris_dir(self):
+        home_dir = str(Path.home())
+        fulldir1 = os.path.join(home_dir, "Documents")
+        os.makedirs(fulldir1, exist_ok=True)
+        fulldir2 = os.path.join(fulldir1, "Obsidien")
+        os.makedirs(fulldir2, exist_ok=True)
+        fulldir3 = os.path.join(fulldir2, "Database")
+        os.makedirs(fulldir3, exist_ok=True)
+        fulldira = os.path.join(fulldir3, "RIS")
+        os.makedirs(fulldira, exist_ok=True)
+        return fulldira
+
+    def _build_reference_content_from_fields(self, data):
+        title = self.cleaninput(str(data.get('title', '')))
+        authors = self.cleaninput(str(data.get('authors', '')))
+        institutes = self.cleaninput(str(data.get('institutes', '')))
+        publication = self.cleaninput(str(data.get('publication', '')))
+        press = self.cleaninput(str(data.get('press', '')))
+        year = self.cleaninput(str(data.get('year', '')))
+        vol = self.cleaninput(str(data.get('vol', '')))
+        tags = self.cleaninput(str(data.get('tags', '')))
+        from_book = self.cleaninput(str(data.get('from_book', '')))
+        chapter = self.cleaninput(str(data.get('chapter', '')))
+        pages = str(data.get('pages', ''))
+        doi = str(data.get('doi', '')).strip()
+        isbn = str(data.get('isbn', '')).strip()
+        url = str(data.get('url', '')).strip()
+        conference = str(data.get('conference', '')).strip()
+        host = str(data.get('host', '')).strip()
+        place = str(data.get('place', '')).strip()
+        web_mode = bool(data.get('web_mode', False))
+
+        part1 = '# Metadata'
+        part2 = '\n- ' + 'Title: ' + title
+        part3 = ''
+        if authors != '':
+            if '%' not in authors:
+                part3 = '\n- ' + 'Authors: ' + authors
+            else:
+                part3 = '\n- ' + 'Authors: ' + authors.replace('%', '(translator)')
+
+        part4 = ''
+        if institutes != '':
+            part4 = '\n- ' + 'Institutes: ' + institutes
+
+        part5 = ''
+        if publication != '':
+            part5 = '\n- ' + 'Publication: ' + publication
+
+        part5_1 = ''
+        if press != '':
+            part5_1 = '\n- ' + 'Press: ' + press
+
+        part5_5 = ''
+        if not web_mode:
+            if from_book == '' or chapter == '':
+                part5_5 = '\n- ' + 'Page range: ' + pages
+            if from_book != '' and chapter != '' and pages != '':
+                part5_5 = '\n- ' + 'From book: ' + from_book + ', Chapter ' + chapter + ', Page range: ' + pages
+
+        part6 = '\n- ' + 'Year: ' + '#AD' + year
+        part6_5 = ''
+        if vol != '':
+            part6_5 = '\n- ' + 'Vol / Mon: ' + vol
+
+        part6_6 = ''
+        if doi != '':
+            part6_6 = '\n- ' + 'DOI: ' + doi
+
+        part6_7 = ''
+        if isbn != '':
+            part6_7 = '\n- ' + 'ISBN: ' + isbn
+
+        part7 = ''
+        if tags != '':
+            exptag = tags.replace('+', '、')
+            listtag = exptag.split('、')
+            i = 0
+            while i >= 0 and i <= len(listtag) - 1:
+                listtag[i] = '#' + str(listtag[i]) + ' '
+                listtag[i] = ''.join(listtag[i])
+                i += 1
+                continue
+            endtag = ''.join(listtag)
+            part7 = '\n- ' + 'Tags: ' + str(endtag)
+
+        part7_5 = ''
+        if self.is_contain_chinese(str(title)) or self.is_contain_chinese(str(publication)) or self.is_contain_chinese(str(from_book)):
+            if not web_mode:
+                if '%' not in authors:
+                    if publication != '':
+                        part7_5 = '\n- ' + 'Citation: ' + authors + '：《' + title + '》，载《' + \
+                            publication + '》，' + year + ' 年第 ' + \
+                            vol + ' 期，第 ' + pages + ' 页。'
+                    if publication == '' and from_book != '':
+                        part7_5 = '\n- ' + 'Citation: ' + authors + '：《' + \
+                            from_book + '》，' + press + '，' + year + ' 年 ' + \
+                            vol + ' 月版，第 ' + pages + ' 页。'
+                if '%' in authors:
+                    zove = authors.replace('+', '、').split('、')
+                    for i in range(len(zove)):
+                        if '%' in zove[i]:
+                            zove[i] = zove[i].replace('%', '译')
+                            i = i + 1
+                            continue
+                        if '%' not in zove[i]:
+                            zove[i] = zove[i] + '著'
+                            zove[i] = ''.join(zove[i])
+                            i = i + 1
+                            continue
+                    zoveend = '，'.join(zove)
+                    zoveend = zoveend.replace('译，', '、')
+                    if publication != '':
+                        part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + title + '》，载《' + \
+                            publication + '》，' + year + ' 年第 ' + \
+                            vol + ' 期，第 ' + pages + ' 页。'
+                    if publication == '' and from_book != '':
+                        part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + \
+                            from_book + '》，' + press + '，' + year + ' 年 ' + \
+                            vol + ' 月版，第 ' + pages + ' 页。'
+            if web_mode:
+                ISOTIMEFORMAT = '%Y 年 %m 月 %d 日'
+                theTime = datetime.datetime.now().strftime(ISOTIMEFORMAT)
+                if '%' not in authors:
+                    if url != '':
+                        part7_5 = '\n- ' + 'Citation: ' + authors + '：《' + title + '》，' + url + '，访问时间：' + theTime + ' 。'
+                    if url == '':
+                        part7_5 = '\n- ' + 'Citation: ' + authors + '：《' + title + '》，提交给“' + conference + '”的论文，' + place + '，' + host + '，' + year + ' 年 ' + vol + ' 月。'
+                if '%' in authors:
+                    zove = authors.replace('+', '、').split('、')
+                    for i in range(len(zove)):
+                        if '%' in zove[i]:
+                            zove[i] = zove[i].replace('%', '译')
+                            i = i + 1
+                            continue
+                        if '%' not in zove[i]:
+                            zove[i] = zove[i] + '著'
+                            zove[i] = ''.join(zove[i])
+                            i = i + 1
+                            continue
+                    zoveend = '，'.join(zove)
+                    zoveend = zoveend.replace('译，', '、')
+                    if url != '':
+                        part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + title + '》，' + url + '，访问时间：' + theTime + ' 。'
+                    if url == '':
+                        part7_5 = '\n- ' + 'Citation: ' + zoveend + '：《' + title + '》，提交给“' + conference + '”的论文，' + place + '，' + host + '，' + year + ' 年 ' + vol + ' 月。'
+        if self.is_contain_english(str(title)) and not self.is_contain_chinese(str(title)):
+            if not web_mode:
+                if publication != '':
+                    part7_5 = '\n- ' + 'Citation: ' + authors.replace('+', '、').replace('、', ', ') + ', “' + title + ',” *' + \
+                        publication + '*, ' + vol + ', ' + year + ', pp.' + \
+                        pages + '.'
+                if publication == '' and from_book != '':
+                    part7_5 = '\n- ' + 'Citation: ' + authors.replace('+', '、').replace('、', ', ') + ', ' + \
+                        from_book + ', ' + press + ', ' + year + ', pp. ' + \
+                        pages + '.'
+            if web_mode:
+                ISOTIMEFORMAT = '%B %d, %Y'
+                theTime = datetime.datetime.now().strftime(ISOTIMEFORMAT)
+                if url != '':
+                    part7_5 = '\n- ' + 'Citation: ' + authors.replace('+', '、').replace('、', ', ') + ', “' + title + ',” retrieved ' + \
+                        theTime + ', from ' + url
+                if url == '':
+                    part7_5 = '\n- ' + 'Citation: ' + authors.replace('+', '、').replace('、', ', ') + ', “' + title + ',” paper delivered to ' + \
+                        conference + ', sponsored by ' + host + ', ' + place + ', ' + vol + ', ' + year + '.'
+
+        def _safe_num(val):
+            return str(val).strip() if str(val).strip() != '' else '000'
+
+        def _safe_str(val):
+            return str(val).strip() if str(val).strip() != '' else 'UNKNOWN'
+
+        def _clean_key(src):
+            key = re.sub('[^A-Za-z0-9]', '', str(src))
+            return key if key != '' else 'Unknown'
+
+        def _build_citekey():
+            authors_raw = _safe_str(authors).replace('+', '、').split('、')
+            first_author = authors_raw[0] if authors_raw else 'Unknown'
+            author_key = _clean_key(first_author.split(' ')[0])
+            year_key = _safe_num(year)
+            title_key = _clean_key(title)
+            return f"{author_key}{year_key}{title_key}"
+
+        def _bibtex_article():
+            vol_val = _safe_str(vol)
+            num_val = _safe_num('000')
+            if '(' in vol_val or '（' in vol_val:
+                import re as _re
+                m = _re.search(r'[\(（](.*?)[\)）]', vol_val)
+                if m:
+                    num_val = _safe_num(m.group(1))
+                vol_val = _re.sub(r'[\(（].*?[\)）]', '', vol_val).strip()
+            citekey = _build_citekey()
+            doi_val = _safe_str(doi)
+            journal = _safe_str(publication)
+            volume = _safe_num(vol_val)
+            number = num_val
+            pages_val = _safe_str(pages)
+            publisher = _safe_str(press)
+            url_val = f"https://doi.org/{doi_val}" if doi_val != 'UNKNOWN' else _safe_str(url)
+            return f'''@article{{{citekey},
+  doi = "{doi_val}",
+  title = "{_safe_str(title)}",
+  author = "{_safe_str(authors).replace('、', ' and ')}",
+  journal = "{journal}",
+  year = {_safe_num(year)},
+  volume = {volume},
+  number = {number},
+  pages = "{pages_val}",
+  publisher = "{publisher}",
+  url = "{url_val}",
+  type = "journal-article",
+}}'''
+
+        def _bibtex_misc():
+            citekey = _build_citekey()
+            today = datetime.datetime.now().strftime('%Y-%m-%d')
+            year_val = _safe_num(year)
+            month_val = _safe_str(vol)
+            date_val = f"{year_val}-{month_val}" if month_val != 'UNKNOWN' else f"{year_val}-00-00"
+            howpublished = _safe_str(conference if conference != '' else publication)
+            url_val = _safe_str(url)
+            return f'''@misc{{{citekey},
+  author    = {{{_safe_str(authors).replace('、', ' and ')}}},
+  title     = {{{_safe_str(title)}}},
+  year      = {{{year_val}}},
+  date      = {{{date_val}}},
+  howpublished = {{{howpublished}}},
+  url       = {{{url_val}}},
+  urldate   = {{{today}}},
+  language  = {{{_safe_str('en')}}}
+}}'''
+
+        def _bibtex_inproceedings():
+            vol_val = _safe_str(vol)
+            num_val = _safe_num('000')
+            if '(' in vol_val or '（' in vol_val:
+                import re as _re
+                m = _re.search(r'[\(（](.*?)[\)）]', vol_val)
+                if m:
+                    num_val = _safe_num(m.group(1))
+                vol_val = _re.sub(r'[\(（].*?[\)）]', '', vol_val).strip()
+            citekey = _build_citekey()
+            booktitle = _safe_str(conference)
+            editor = _safe_str(host)
+            volume = _safe_num(vol_val)
+            pages_val = _safe_str(pages)
+            publisher = _safe_str(press)
+            address = _safe_str(place)
+            doi_val = _safe_str(doi)
+            url_val = f"https://doi.org/{doi_val}" if doi_val != 'UNKNOWN' else _safe_str(url)
+            return f'''@inproceedings{{{citekey},
+  author    = {{{_safe_str(authors).replace('、', ' and ')}}},
+  title     = {{{_safe_str(title)}}},
+  booktitle = {{{booktitle}}},
+  editor    = {{{editor}}},
+  volume    = {{{volume}}},
+  series    = {{{_safe_str('UNKNOWN')}}},
+  pages     = {{{pages_val.replace('-', '--')}}},
+  publisher = {{{publisher}}},
+  address   = {{{address}}},
+  year      = {{{_safe_num(year)}}},
+  month     = {{{_safe_str('UNKNOWN').lower()}}},
+  doi       = {{{doi_val}}},
+  url       = {{{url_val}}},
+  language  = {{{_safe_str('en')}}}
+}}'''
+
+        def _bibtex_book():
+            citekey = _build_citekey()
+            title_val = _safe_str(from_book if from_book != '' else title)
+            pages_val = _safe_str(pages)
+            url_val = _safe_str(url)
+            return f'''@book{{{citekey},
+  doi = "{_safe_str(doi)}",
+  title = "{title_val}",
+  author = "{_safe_str(authors).replace('、', ' and ')}",
+  publisher = "{_safe_str(press)}",
+  year = {_safe_num(year)},
+  isbn = "{_safe_str(isbn)}",
+  url = "{url_val}",
+  pages = "{pages_val}",
+}}'''
+
+        def _pick_bibtex():
+            if url != '':
+                return _bibtex_misc()
+            if url == '' and conference != '':
+                return _bibtex_inproceedings()
+            if publication != '' and press == '' and url == '' and conference == '':
+                return _bibtex_article()
+            if press != '' and publication == '':
+                return _bibtex_book()
+            return _bibtex_article()
+
+        part7_6 = '\n- BibTeX:\n```bibtex\n' + _pick_bibtex() + '\n```'
+        part8 = '\n\n---' + '\n\n# Notes'
+        return part1 + part2 + part3 + part4 + part5 + part5_1 + part5_5 + part6 + part6_5 + part6_6 + part6_7 + part7 + part7_5 + part7_6 + part8
+
+    def _create_temp_reference_file(self, data):
+        title = str(data.get('title', '')).strip()
+        if title == '':
+            return ''
+        content = self._build_reference_content_from_fields(data)
+        if content == '':
+            return ''
+        ris_dir = self._ensure_ris_dir()
+        base_name = self.cleaninput(title)
+        if base_name == '':
+            base_name = 'Untitled'
+        file_path = os.path.join(ris_dir, f"{base_name}.md")
+        idx = 1
+        while os.path.exists(file_path):
+            file_path = os.path.join(ris_dir, f"{base_name}-{idx}.md")
+            idx += 1
+        with open(file_path, 'w', encoding='utf-8') as f0:
+            f0.write(content)
+        return file_path
 
     def addmain(self):
         if self.btnmain2.text() != 'Added' and self.le1.text() != '':
@@ -7121,6 +7777,8 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 part8 = '\n\n---' + '\n\n# Notes'
 
                 with open(fulldir1, 'a', encoding='utf-8') as f1:
+                    f1.write('')
+                with open(fulldir1, 'w', encoding='utf-8') as f1:
                     f1.write(part1+part2+part3+part4+part5+part5_1+part5_5+part6+part6_5+part6_6+part6_7+part7+part7_5+part7_6+part8)
                 with open(BasePath + 'path_ttl.txt', 'w', encoding='utf-8') as f0:
                     f0.write(self.le1.text())
@@ -10858,28 +11516,19 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 # set position
                 QTimer.singleShot(100, self.scr_cha2)
 
-    def addcit(self):
+    def _addcit_select_file(self):
         path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
-        home_dir = str(Path.home())
-        tarname11 = "Documents"
-        fulldir11 = os.path.join(home_dir, tarname11)
-        if not os.path.exists(fulldir11):
-            os.makedirs(fulldir11)
-        tarname22 = 'Obsidien'
-        fulldir22 = os.path.join(fulldir11, tarname22)
-        if not os.path.exists(fulldir22):
-            os.makedirs(fulldir22)
-        tarname33 = 'Database'
-        fulldir33 = os.path.join(fulldir22, tarname33)
-        if not os.path.exists(fulldir33):
-            os.makedirs(fulldir33)
-        tarnamea = 'RIS'
-        fulldira = os.path.join(fulldir33, tarnamea)
-        if not os.path.exists(fulldira):
-            os.makedirs(fulldira)
-
         if path1 != '' and self.leii1.text() != '':
             file_name, ok = QFileDialog.getOpenFileName(self, "Open File", path1, "Markdown Files (*.md)")
+            return self._addcit_prepare(file_name)
+        return False
+
+    def _addcit_prepare(self, file_name):
+        path1 = codecs.open(BasePath + 'path_art.txt', 'r', encoding='utf-8').read()
+        fulldira = self._ensure_ris_dir()
+        success = False
+
+        if path1 != '' and self.leii1.text() != '':
             if file_name != '' and (path1 in file_name or fulldira in file_name):
                 try:
                     title_key = self._get_citation_title_key()
@@ -10912,9 +11561,9 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                 p = subprocess.Popen(['pbcopy', 'w'], stdin=subprocess.PIPE, env=env)
                 p.communicate(input=ResultEnd.encode('utf-8'))
 
-                path1 = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
+                path_scr = codecs.open(BasePath + 'path_scr.txt', 'r', encoding='utf-8').read()
                 tarname1 = str(self.leii1.text()) + ".md"
-                fulldir1 = os.path.join(path1, tarname1)
+                fulldir1 = os.path.join(path_scr, tarname1)
                 current_text = self.textii2.toPlainText()
                 try:
                     position_str = codecs.open(BasePath + 'cite_position_idx.txt', 'r', encoding='utf-8').read()
@@ -10938,17 +11587,23 @@ class window3(QWidget):  # 主程序的代码块（Find a dirty word!）
                         QMessageBox.StandardButton.No
                     )
                     if reply != QMessageBox.StandardButton.Yes:
-                        return
+                        return False
 
                 body_text = self._strip_inspiration_body(current_text)
                 body_text = body_text[:position_idx] + ResultEnd + body_text[position_idx:]
                 composed_text = self._compose_inspiration_file(body_text)
                 with open(fulldir1, 'w', encoding='utf-8') as f0:
                     f0.write(composed_text)
+                success = True
             with open(BasePath + 'filename.txt', 'w', encoding='utf-8') as f0:
                 f0.write(file_name)
 
         QTimer.singleShot(100, self.addcit2)
+        return success
+
+    def addcit(self):
+        warn = CustomDialog_add_reference(self)
+        warn.exec()
 
     def _populate_article_fields_from_content(self, contend):
         def _set_if_empty(widget, value):
